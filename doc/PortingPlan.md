@@ -46,7 +46,8 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 | 3 | 장비 명령 계층 | `USB_FT232H_Device.cpp` 전체 → `SemDevice` (전역 변수 → 필드, `Afx*` 함수 → 같은 이름 메서드). 451개는 `NanoImpact.CodeGen translate`로 옮긴 뒤 손질, FT 계층 30개는 손으로 | **완료, 원본 대조 하네스와 일치** (장비 미시험, 스레드 본문은 실제 스레드로 미실행) |
 | 4 | 영상 취득 | SE 읽기(장치 계층) → `OnSemSEScanImageData` 마커 해석 → 라이브·포토 4종 조립을 `SemScanImageProcessor`로 (원본 Dlg.cpp:13488-16148 번역 + 화면은 `IScanImageView`) | **완료, 원본 대조 일치** — 화면 그리기(`*UpdateControl`, 정보 띠·눈금), BSE 영상, 실제 스레드 연결은 7단계에서 |
 | 5 | Spellman C-FE HV | RS232 포트(`USB_RS232_Comm.cpp` → `UsbRS232Comm`, Win32 함수는 `ISerialCommApi`, 실제는 `SerialPort`), 빔 창 송신·감시 타이머(`CfeHVPowerControl`), 메인 화면 LF 조립·응답 해석·모니터 창 램핑 상태(`CfeHVPowerMonitor`), 화면은 `ICfeHVPowerView` | **완료, 원본 대조 일치** (장비 미시험) — 빔 창 버튼 처리(`OnBnClickedBeamControl*`)는 8단계, 실제 타이머·스레드 연결은 6~7단계 |
-| 6 | 장비 서비스 | `ModularAssistDevice` + 메인의 `OnSetUsbDevice*`/`SetSEM*` → `ISemDevice` 서비스, 상태 모델 | |
+| 6a | 장비 명령 묶음·실제 호스트 | `ModularAssistDevice.cpp` 전체 → `AssistDevice` (154개 번역 후 손질, 메인 화면 호출은 `IAssistOwner`), 공용 상태 `VACUUM_BEAM_ALIGN_FOCUS_DATA`, 실제 `DeviceHost`(UI 스레드 SendMessage/PostMessage, 실제 스레드) | **완료, 원본 대조 일치** (장비 미시험) |
+| 6b | 메인 화면 장치 처리기 | 메인의 `OnSemControl*Data`/`OnSemHWSetup*`/`OnSemControlStage*`(장치 → 화면, `UM_USB_SBR_*`), `OnSetUsbDevice*`/`OnGetUsbDevice*`(화면 → 장치) 약 6천 줄 → 서비스 + 패널 호출 인터페이스 | |
 | 7 | WPF 셸 | 상단 바, 영상 4칸, 오른쪽 탭(Scan/Focus/Beam/Align/Vacuum/Option), Stage/CFE-HV, 하단 Detail, 캡처 목록 | |
 | 8 | 제어 패널 | Vacuum → Beam → CFE 모니터 → Focus·Align·Scan → Stage(+Load/Unload) → Detail | |
 | 9 | 자동 기능 | 자동 시작 상태 기계, Auto Focus/Contrast/Brightness/Gun Align (OpenCV → OpenCvSharp 또는 HW_AF.dll) | |
@@ -135,3 +136,18 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 - 번역기: `NanoImpact2020cfeDlg.cpp`는 BOM 있는 UTF-8 파일에 CP949 주석과 UTF-8 주석이 섞여 있어 줄마다 판별해 읽는다.
   C 런타임에 `char*` 산술(`CharPtr`), `memcmp`, `strncpy(char*, char*)`, UCRT `atof`의 16진 실수·inf·nan·넘침을 더했다.
 - 원본 대조: `tools\hv_harness` (README 참고). send 538 / rx 1854 / monitor 19 / ramp 16 / port 28 / smoke 11 블록 모두 같음.
+
+### 장비 명령 묶음·실제 호스트 (6a)
+
+- `src\NanoImpact.Hardware\Device\Assist\AssistDevice` — 원본 `CModularAssistDevice` 메서드 154개 (`Assist\AssistDevice.L*.cs`, 다시 생성하지 않음).
+  원본 전역 `Afx*` 호출은 `m_dev.Afx*`(SemDevice), 메인 화면 호출(`OnSetUsbDeviceSEMControlDataToDeviceServer` 등 5개)은 `IAssistOwner` — 6b가 구현한다.
+- `src\NanoImpact.Core\Native\VacuumBeamAlignFocusData.cs` — 원본 `VACUUM_BEAM_ALIGN_FOCUS_DATA` 필드 176개 (진공·빔·정렬·포커스 패널 공용).
+- `src\NanoImpact.Hardware\Device\DeviceHost` — `IDeviceHost` 실제 구현. 창 번호마다 처리기를 붙이고(`RegisterWindow`), SendMessage는 UI 스레드에서
+  실행해 끝날 때까지 기다리고, PostMessage는 UI 큐에, BeginThread는 배경 스레드(예외는 `ThreadFailed`로). UI 스레드가 장치 스레드를 기다리는 중에
+  그 스레드가 SendMessage를 하면 서로 기다린다(원본 Win32도 같은 구조) — 6b·7단계에서 UI 쪽이 장치 스레드를 막고 기다리지 않게 한다.
+- 원본 대조: `tools\device_harness`에 `ModularAssistDevice.cpp` 메서드를 그대로 붙이고(`assist_methods.inc`), 호출 표 `assist_dispatch.inc`
+  (`NanoImpact.CodeGen dispatch-class`)로 `CALL A.이름(형식)`을 부른다. 메인 화면 호출은 요청 구조체 내용까지 `OWNER` 줄로 비교.
+  assist1/2/7 각 188 호출, assist_modes 369 호출(스캔 모드·진공 상태·CL 모드·축 이동·Spellman 조합) 모두 같음.
+  assist0의 차이 2건은 spot size 0 → CL 배열 [-1] (위 4절 CL1/CL2 항목과 같은 원본 버그).
+- `NanoImpact.Verify hostcheck <INI 폴더>` — 실제 호스트와 실제 장치 스레드: 다른 스레드의 SendMessage가 UI 스레드에서 실행·반환, Post 순서,
+  스레드 예외 보고, 원본 시작 순서로 연 장치의 Scan Bridge 수신 스레드가 가짜 FTDI 응답을 읽어 메인 창으로 `5026`을 보냄, 원본 OnClose 순서로 종료.

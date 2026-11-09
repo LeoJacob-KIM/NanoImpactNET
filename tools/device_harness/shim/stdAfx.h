@@ -81,6 +81,22 @@ public:
     }
 };
 
+#ifdef UNICODE
+// MFC CStringA from a wide CString: converted with the ANSI code page ((CStringA)strData)
+class CStringA
+{
+    std::string s;
+public:
+    CStringA(LPCWSTR w)
+    {
+        int n = w ? WideCharToMultiByte(CP_ACP, 0, w, -1, NULL, 0, NULL, NULL) : 0;
+        s.assign(n > 0 ? n - 1 : 0, '\0');
+        if (n > 1) WideCharToMultiByte(CP_ACP, 0, w, -1, &s[0], n, NULL, NULL);
+    }
+    operator const char*() const { return s.c_str(); }
+};
+#endif
+
 class CFile
 {
     FILE* f;

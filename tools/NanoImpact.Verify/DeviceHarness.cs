@@ -22,8 +22,11 @@ namespace NanoImpact.Verify
         private readonly FakeFtdi _ftdi;
         private readonly RecordingHost _host;
         private readonly SemDevice _dev;
+        private readonly AssistDevice _assist;
+        private readonly VACUUM_BEAM_ALIGN_FOCUS_DATA _vbaf = new VACUUM_BEAM_ALIGN_FOCUS_DATA();
         private byte[] _prevIntegrated;
         private byte[] _prevSRot;
+        private List<string> _prevAssist = new List<string>();
 
         public DeviceHarness(TextWriter output)
         {
@@ -31,6 +34,12 @@ namespace NanoImpact.Verify
             _ftdi = new FakeFtdi(output);
             _host = new RecordingHost(output);
             _dev = new SemDevice(_host, _ftdi);
+            // harness.cpp main과 같은 ModularAssistDevice 연결 (원본 OnInitDialog)
+            _assist = new AssistDevice(_dev, _host);
+            _assist.SetOwner(1);
+            _assist.SetOwnerWindow(new RecordingOwner(output));
+            _assist.SetVacuumBeamAlignFocusPublicData(_vbaf);
+            DiffAssist();
         }
 
         public static int Run(string script)
@@ -103,14 +112,20 @@ namespace NanoImpact.Verify
             ["BYTE"] = new[] { typeof(byte) }, ["UCHAR"] = new[] { typeof(byte) },
             ["double"] = new[] { typeof(double) },
             ["char*"] = new[] { typeof(string), typeof(ICharArray), typeof(CharBuffer) },
+            ["CString"] = new[] { typeof(string) },
+            ["REQUEST_USB_DEVICE_DATA*"] = new[] { typeof(REQUEST_USB_DEVICE_DATA) },
         };
 
         private void Call(string key, string[] args)
         {
             int p = key.IndexOf('(');
             string name = key.Substring(0, p);
+            // "A.Name(...)" = ModularAssistDevice 메서드, 나머지는 장치 계층 Afx* 함수
+            bool assist = name.StartsWith("A.", StringComparison.Ordinal);
+            if (assist) name = name.Substring(2);
+            object target = assist ? (object)_assist : _dev;
             string[] ctypes = key.Substring(p + 1, key.Length - p - 2).Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            MethodInfo method = typeof(SemDevice).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            MethodInfo method = target.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
                 .Where(m => m.Name == name && m.GetParameters().Length == ctypes.Length)
                 .FirstOrDefault(m => m.GetParameters().Select((pi, i) => CTypes.TryGetValue(ctypes[i], out Type[] ok) && ok.Contains(pi.ParameterType)).All(x => x));
             if (method == null)
@@ -127,6 +142,7 @@ namespace NanoImpact.Verify
                 Type t = ps[i].ParameterType;
                 if (t == typeof(double)) values[i] = a == null ? 0.0 : CStrtod(a);
                 else if (t == typeof(string)) values[i] = a ?? "";
+                else if (t == typeof(REQUEST_USB_DEVICE_DATA)) values[i] = ParseRequest(a ?? "");
                 else if (typeof(ICharArray).IsAssignableFrom(t)) values[i] = new CharBuffer((a ?? "").Length + 256, a ?? "");
                 else
                 {
@@ -139,12 +155,12 @@ namespace NanoImpact.Verify
             object ret;
             try
             {
-                ret = method.Invoke(_dev, values);
+                ret = method.Invoke(target, values);
             }
             catch (TargetInvocationException ex)
             {
                 _out.WriteLine("EXCEPTION " + ex.InnerException.GetType().Name + ": " + ex.InnerException.Message);
-                foreach (string fr in (ex.InnerException.StackTrace ?? "").Split('\n').Where(x => x.Contains("SemDevice")).Take(3)) _out.WriteLine("  at " + fr.Trim());
+                foreach (string fr in (ex.InnerException.StackTrace ?? "").Split('\n').Where(x => x.Contains("SemDevice") || x.Contains("AssistDevice")).Take(3)) _out.WriteLine("  at " + fr.Trim());
                 DiffState();
                 return;
             }
@@ -168,12 +184,82 @@ namespace NanoImpact.Verify
 
         private static double CStrtod(string s) => CRuntime.atof(s);
 
+        /// <summary>harness.cpp Args::Req와 같은 형식 "id,type,option;n0,n1,..;d0,d1,..;text" (빠진 칸은 0)</summary>
+        private static REQUEST_USB_DEVICE_DATA ParseRequest(string s)
+        {
+            var r = new REQUEST_USB_DEVICE_DATA();
+            string[] part = s.Split(';');
+            string[] Items(string x) => x.Length == 0 ? new string[0] : x.Split(',');
+            string[] h = Items(part[0]);
+            if (h.Length > 0) r.nRequestID = unchecked((int)ParseCInt(h[0]));
+            if (h.Length > 1) r.nRequestType = unchecked((int)ParseCInt(h[1]));
+            if (h.Length > 2) r.nRequestOption = unchecked((int)ParseCInt(h[2]));
+            if (part.Length > 1) { string[] n = Items(part[1]); for (int i = 0; i < n.Length && i < r.nRequestData.Length; i++) r.nRequestData[i] = unchecked((int)ParseCInt(n[i])); }
+            if (part.Length > 2) { string[] d = Items(part[2]); for (int i = 0; i < d.Length && i < r.dRequestData.Length; i++) r.dRequestData[i] = CStrtod(d[i]); }
+            if (part.Length > 3) { string t = part[3].Length >= r.szData.Capacity ? part[3].Substring(0, r.szData.Capacity - 1) : part[3]; CRuntime.strcpy(r.szData, t); }
+            return r;
+        }
+
+        /// <summary>harness.cpp PrintRequest와 같은 형식</summary>
+        private static string FormatRequest(REQUEST_USB_DEVICE_DATA r)
+        {
+            int ln = r.nRequestData.Length, ld = r.dRequestData.Length;
+            while (ln > 0 && r.nRequestData[ln - 1] == 0) ln--;
+            while (ld > 0 && r.dRequestData[ld - 1] == 0.0) ld--;
+            return string.Format(CultureInfo.InvariantCulture, " REQ {0} {1} {2} n={3} d={4} sz={5}", r.nRequestID, r.nRequestType, r.nRequestOption,
+                string.Join(",", r.nRequestData.Take(ln)), string.Join(",", r.dRequestData.Take(ld).Select(x => CRuntime.Format("%.17g", x))), r.szData);
+        }
+
+        /// <summary>ModularAssistDevice가 m_pOwnerWindow로 부르는 메인 화면 함수 (6b에서 포팅) — harness.cpp CNanoImpact2020cfeDlg와 같은 기록</summary>
+        private sealed class RecordingOwner : IAssistOwner
+        {
+            private readonly TextWriter _out;
+            public RecordingOwner(TextWriter output) { _out = output; }
+
+            public int OnSetUsbDeviceSEMControlDataToDeviceServer(int wParam, object lParam)
+            {
+                _out.WriteLine("OWNER OnSetUsbDeviceSEMControlDataToDeviceServer " + unchecked((uint)wParam) + FormatRequest((REQUEST_USB_DEVICE_DATA)lParam));
+                return 1;
+            }
+
+            public int OnSetUsbDeviceSEMControlDataToFlowControl(int wParam, object lParam)
+            {
+                _out.WriteLine("OWNER OnSetUsbDeviceSEMControlDataToFlowControl " + unchecked((uint)wParam) + FormatRequest((REQUEST_USB_DEVICE_DATA)lParam));
+                return 1;
+            }
+
+            public int OnSemControlIntegratedData(int wParam, object lParam) { _out.WriteLine("OWNER OnSemControlIntegratedData " + unchecked((uint)wParam) + " " + (lParam != null ? "P" : "0")); return 1; }
+            public int OnSemStageUsbControlData(int wParam, object lParam) { _out.WriteLine("OWNER OnSemStageUsbControlData " + unchecked((uint)wParam) + " " + (lParam != null ? "P" : "0")); return 1; }
+            public void SetWDSetupEnabledOLValue(int nCoarse) => _out.WriteLine("OWNER SetWDSetupEnabledOLValue " + nCoarse);
+        }
+
         // ---- 상태 변화 (harness.cpp Diff와 같은 규칙: 4바이트 이내 간격은 한 줄로) ----
 
         private void DiffState()
         {
             Diff('S', _dev.IntegratedForTest?.ToBytes(), ref _prevIntegrated);
             Diff('R', _dev.ScanRotCaliForTest?.ToBytes(), ref _prevSRot);
+            DiffAssist();
+        }
+
+        /// <summary>harness.cpp DiffAssist와 같은 순서·이름</summary>
+        private void DiffAssist()
+        {
+            var cur = new List<string>
+            {
+                "g_assist.m_bSbrConnected=" + _assist.m_bSbrConnected,
+                "g_assist.m_bSemConnected=" + _assist.m_bSemConnected,
+                "g_assist.m_bBseConnected=" + _assist.m_bBseConnected,
+                "g_assist.m_bUsbConnected=" + _assist.m_bUsbConnected,
+                "g_assist.m_bSysInitilized=" + _assist.m_bSysInitilized,
+                "g_assist.m_nSeBseScanMode=" + _assist.m_nSeBseScanMode,
+                "g_vbaf.m_nChamberState=" + _vbaf.m_nChamberState,
+                "g_vbaf.m_nGunValveState=" + _vbaf.m_nGunValveState,
+            };
+            if (_prevAssist.Count != cur.Count) _prevAssist = cur.Select(_ => "").ToList();
+            for (int i = 0; i < cur.Count; i++)
+                if (cur[i] != _prevAssist[i]) _out.WriteLine("A " + cur[i]);
+            _prevAssist = cur;
         }
 
         private void Diff(char tag, byte[] b, ref byte[] prev)
@@ -198,17 +284,20 @@ namespace NanoImpact.Verify
 
         // ---- 가짜 FTDI (fake_ftd2xx.cpp와 같은 기록) ----
 
-        private sealed class FakeFtdi : IFtdi
+        /// <summary>가짜 FTDI. HostCheck(실제 스레드)도 쓴다: 받는 큐는 잠그고, RX가 들어오면 FT_SetEventNotification으로 받은 이벤트를 켠다.</summary>
+        internal sealed class FakeFtdi : IFtdi
         {
             private readonly TextWriter _out;
             private readonly Queue<byte>[] _rx = { new Queue<byte>(), new Queue<byte>(), new Queue<byte>() };
+            private readonly EventWaitHandle[] _events = new EventWaitHandle[3];
 
             public FakeFtdi(TextWriter output) { _out = output; }
 
             public void PushRx(int idx, byte[] b)
             {
                 if (idx < 0 || idx > 2) return;
-                foreach (byte x in b) _rx[idx].Enqueue(x);
+                lock (_rx[idx]) foreach (byte x in b) _rx[idx].Enqueue(x);
+                _events[idx]?.Set();
             }
 
             private static int IndexOf(IntPtr h) => (int)h - 1;
@@ -237,7 +326,7 @@ namespace NanoImpact.Verify
             {
                 int idx = IndexOf(h);
                 uint n = 0;
-                while (n < toRead && idx >= 0 && idx < 3 && _rx[idx].Count > 0) buffer[n++] = _rx[idx].Dequeue();
+                if (idx >= 0 && idx < 3) lock (_rx[idx]) while (n < toRead && _rx[idx].Count > 0) buffer[n++] = _rx[idx].Dequeue();
                 read = n;
                 return 0;
             }
@@ -258,7 +347,7 @@ namespace NanoImpact.Verify
             public uint FT_GetStatus(IntPtr h, out uint rx, out uint tx, out uint ev)
             {
                 int idx = IndexOf(h);
-                rx = idx >= 0 && idx < 3 ? (uint)_rx[idx].Count : 0;
+                rx = idx >= 0 && idx < 3 ? (uint)Count(idx) : 0;
                 tx = 0;
                 ev = 0;
                 return 0;
@@ -267,7 +356,7 @@ namespace NanoImpact.Verify
             public uint FT_GetQueueStatus(IntPtr h, out uint rx)
             {
                 int idx = IndexOf(h);
-                rx = idx >= 0 && idx < 3 ? (uint)_rx[idx].Count : 0;
+                rx = idx >= 0 && idx < 3 ? (uint)Count(idx) : 0;
                 return 0;
             }
 
@@ -275,7 +364,14 @@ namespace NanoImpact.Verify
             public uint FT_SetLatencyTimer(IntPtr h, byte ms) => Ctl(h, "FT_SetLatencyTimer", ms);
             public uint FT_SetUSBParameters(IntPtr h, uint i, uint o) => Ctl(h, "FT_SetUSBParameters", i, o);
             public uint FT_SetFlowControl(IntPtr h, ushort flow, byte xon, byte xoff) => Ctl(h, "FT_SetFlowControl", flow, xon, xoff);
-            public uint FT_SetEventNotification(IntPtr h, uint mask, EventWaitHandle evt) => Ctl(h, "FT_SetEventNotification", mask);
+            private int Count(int idx) { lock (_rx[idx]) return _rx[idx].Count; }
+
+            public uint FT_SetEventNotification(IntPtr h, uint mask, EventWaitHandle evt)
+            {
+                int idx = IndexOf(h);
+                if (idx >= 0 && idx < 3) _events[idx] = evt;
+                return Ctl(h, "FT_SetEventNotification", mask);
+            }
         }
 
         // ---- 기록하는 호스트 (harness.cpp의 Harness* 함수와 같은 기록) ----

@@ -45,6 +45,12 @@ namespace NanoImpact.CodeGen
                     DispatchGen.Run(args[1], args[2]);
                     return 0;
                 }
+                if (args.Length >= 5 && args[0] == "dispatch-class")
+                {
+                    // NanoImpact.CodeGen dispatch-class <ModularAssistDevice.h> <assist_dispatch.inc> A g_assist
+                    DispatchGen.RunClass(args[1], args[2], args[3], args[4]);
+                    return 0;
+                }
                 string header = args.Length > 0 ? args[0] : DefaultHeader;
                 string root = args.Length > 1 ? args[1] : FindRepoRoot();
                 Run(header, root);
