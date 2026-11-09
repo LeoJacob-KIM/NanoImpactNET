@@ -59,8 +59,8 @@ namespace NanoImpact.CodeGen
                 }
                 if (args.Length >= 7 && args[0] == "panels")
                 {
-                    // NanoImpact.CodeGen panels <원본 폴더> <원본.cpp> <줄 범위> <인터페이스.cs> <기록.cs> <panels.inc>
-                    PanelGen.Run(args[1], args[2], args[3], args[4], args[5], args[6]);
+                    // NanoImpact.CodeGen panels <원본 폴더> <원본.cpp> <줄 범위> <인터페이스.cs> <기록.cs> <panels.inc> [앱 임시 패널.cs]
+                    PanelGen.Run(args[1], args[2], args[3], args[4], args[5], args[6], args.Length > 7 ? args[7] : null);
                     return 0;
                 }
                 string header = args.Length > 0 ? args[0] : DefaultHeader;

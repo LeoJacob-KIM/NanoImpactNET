@@ -12,6 +12,11 @@
 //   FRAME <w> <h> <seed> <chunk>    synthetic frame: FF AB AC, lines separated by 00, pixels 01..FE; fed in <chunk>-byte calls
 //   RAW <hex...>                    one OnSemSEScanImageData call with these bytes
 //   DUMP                            hashes of all image buffers
+//   SCAN <mode> <w> <h> <xoff> <yoff> <avg> <gen>   SemScanModeSelectAndScanStart (step 7)
+//   SLOW12 <mode> <w> <h> <xoff> <yoff> <avg>       SemSlow12ScanModeSelectAndScanStart
+//   CL <cl1> <cl2> <curCL1> <curCL2> <clOnOff>      CL values the scan start reads
+//   OPT <idx> <value>               INTEGRATED_COMMAND_STRUCT.nScanOptionData[idx]
+//   BOPT <idx> <value>              INTEGRATED_COMMAND_STRUCT.bScanOptionFlag[idx]
 #include "stdAfx.h"
 #include "DefineStructCode.h"
 #include <vector>
@@ -69,7 +74,43 @@ public:
     void OnBnClickedScanControlSlow2ScanBtn() { fprintf(g_out, "CTL Slow2Scan \n"); }
     void SetPhotoAverageCountText(CString s) { fprintf(g_out, "CTL PhotoAverageCountText %s\n", Narrow(s).c_str()); }
     void LoadPhotoFilterSelectButtonBitmapImage(BOOL a, BOOL b, BOOL c, BOOL d) { fprintf(g_out, "CTL PhotoFilterButtons %d,%d,%d,%d\n", a, b, c, d); }
+    void SetMagnificationUpDown(int n) { fprintf(g_out, "CTL MagnificationUpDown %d\n", n); }
 };
+
+// main dialog timer ids and display intervals (NanoImpact2020cfeDlg.cpp:408-432)
+#define TIMER_ID_SE_SCAN_IMAGE_DISPLAY             10
+#define TIMER_ID_SE_SCAN_IMAGE_DISPLAY_NEXT        11
+#define TIMER_ID_SE_PHOTO12_SCAN_IMAGE_DISPLAY     20
+#define TIMER_ID_SE_PHOTO345_SCAN_IMAGE_DISPLAY    21
+#define TIMER_ID_SE_PHOTO6_SCAN_IMAGE_DISPLAY      22
+#define SE_SCAN_IMAGE_UPDATE_ELAPSE_TIME           50
+#define SE_PHOTO12_SCAN_IMAGE_UPDATE_ELAPSE_TIME   50
+#define SE_PHOTO345_SCAN_IMAGE_UPDATE_ELAPSE_TIME  50
+#define SE_PHOTO6_SCAN_IMAGE_UPDATE_ELAPSE_TIME    50
+
+// step 7: scan start (SemScanModeSelectAndScanStart) callees
+static int g_cl1 = 0, g_cl2 = 0, g_curCL1 = 0, g_curCL2 = 0;
+class CModularScanCalibrationToolDlg
+{
+public:
+    void SemSEScanModeDataUpdateControl(int n) { fprintf(g_out, "CAL SemSEScanModeDataUpdateControl %d\n", n); }
+    int GetCurrentCL1Value() { return g_curCL1; }
+    int GetCurrentCL2Value() { return g_curCL2; }
+};
+// memory DCs: only background fills are recorded (the new WPF screen draws the rest)
+class CDCRec
+{
+    const char* m_name;
+public:
+    explicit CDCRec(const char* name) : m_name(name) {}
+    void FillSolidRect(int x, int y, int w, int h, COLORREF c) { fprintf(g_out, "DC %s %d %d %d %d %u\n", m_name, x, y, w, h, (unsigned)c); }
+};
+int AfxIntegratedGetCL1() { return g_cl1; }
+int AfxIntegratedGetCL2() { return g_cl2; }
+int AfxIntegratedSetCL1(int n) { fprintf(g_out, "DEV AfxIntegratedSetCL1 %d\n", n); return 0; }
+int AfxIntegratedSetCL1() { fprintf(g_out, "DEV AfxIntegratedSetCL1\n"); return 0; }
+int AfxIntegratedSetCL2(int n) { fprintf(g_out, "DEV AfxIntegratedSetCL2 %d\n", n); return 0; }
+int AfxIntegratedSetCL2() { fprintf(g_out, "DEV AfxIntegratedSetCL2\n"); return 0; }
 
 class CStaticX
 {
@@ -109,6 +150,10 @@ class CModularAssistDevice
 {
 public:
     void InsertSort(int* pData, int n);
+    void SetSEMImageCaptureOnOffValueUsbDeviceData(int a = 0, int b = 0) { fprintf(g_out, "DEV SetSEMImageCaptureOnOffValueUsbDeviceData %d %d\n", a, b); }
+    void SetSEMScanGenerationValueUsbDeviceData(int a = 0) { fprintf(g_out, "DEV SetSEMScanGenerationValueUsbDeviceData %d\n", a); }
+    void SetSEMSlow12ImageCaptureOnUsbDeviceData(int a = 0) { fprintf(g_out, "DEV SetSEMSlow12ImageCaptureOnUsbDeviceData %d\n", a); }
+    void ExecuteCLLMHModeData(int a, int b) { fprintf(g_out, "DEV ExecuteCLLMHModeData %d %d\n", a, b); }
 };
 
 class CPublicToolClass
@@ -132,8 +177,17 @@ public:
     CNanoImpact2020cfeDlg()
         : m_ClientInfoText3("ClientInfoText3"), m_ClientInfoText4("ClientInfoText4"),
           m_2ndImage640x480Bitmap("2ndImage640x480", 640, 480), m_2ndImage1280x960Bitmap("2ndImage1280x960", 1280, 960),
-          m_2ndImage2560x1920Bitmap("2ndImage2560x1920", 2560, 1920)
+          m_2ndImage2560x1920Bitmap("2ndImage2560x1920", 2560, 1920),
+          m_1stImageBitmap("1stImage", STD_SE_SCAN_IMAGE_WIDTH, STD_SE_SCAN_IMAGE_HEIGHT), m_1stLayerBitmap("1stLayer", STD_SE_SCAN_IMAGE_WIDTH, STD_SE_SCAN_IMAGE_HEIGHT),
+          m_2ndLayer640x480Bitmap("2ndLayer640x480", 640, 480), m_2ndLayer1280x960Bitmap("2ndLayer1280x960", 1280, 960),
+          m_2ndLayer2560x1920Bitmap("2ndLayer2560x1920", 2560, 1920), m_2ndFullSizeLayer2560x1920Bitmap("2ndFullSizeLayer2560x1920", 2560, 1920),
+          m_1stImageMemDC("1stImageMemDC"), m_1stLayerMemDC("1stLayerMemDC"), m_1stImageInfoMemDC("1stImageInfoMemDC"),
+          m_2ndImage640x480MemDC("2ndImage640x480MemDC"), m_2ndImage1280x960MemDC("2ndImage1280x960MemDC"), m_2ndImage2560x1920MemDC("2ndImage2560x1920MemDC"),
+          m_2ndLayer640x480MemDC("2ndLayer640x480MemDC"), m_2ndLayer1280x960MemDC("2ndLayer1280x960MemDC"), m_2ndLayer2560x1920MemDC("2ndLayer2560x1920MemDC"),
+          m_2ndImageInfoMemDC("2ndImageInfoMemDC")
     {
+        memset(&m_bm1stLayerBitmap, 0, sizeof(BITMAP));
+        memset(&m_bm2ndLayerBitmap, 0, sizeof(BITMAP));
         memset(&m_SemSEScanControlPublicData, 0x00, sizeof(SEM_SE_SCAN_CONTROL_PUBLIC_DATA));
         // OnInitDialog:1509-1569
         m_nSemSEScanImageDataMax = MAX_SE_SCAN_IMAGE_WIDTH * MAX_SE_SCAN_IMAGE_HEIGHT;
@@ -147,7 +201,8 @@ public:
         memset(&m_bm1stBitmap, 0, sizeof(BITMAP));
         m_bm1stBitmap.bmWidth = STD_SE_SCAN_IMAGE_WIDTH; m_bm1stBitmap.bmHeight = STD_SE_SCAN_IMAGE_HEIGHT;
         m_bm1stBitmap.bmWidthBytes = STD_SE_SCAN_IMAGE_WIDTH * 4; m_bm1stBitmap.bmPlanes = 1; m_bm1stBitmap.bmBitsPixel = 32;
-        m_p1stImageRgb = new RGBQUAD[STD_SE_SCAN_IMAGE_WIDTH * STD_SE_SCAN_IMAGE_HEIGHT]();
+        m_p1stBitmapBits = new BYTE[STD_SE_SCAN_IMAGE_WIDTH * STD_SE_SCAN_IMAGE_HEIGHT * 4]();
+        m_p1stImageRgb = (RGBQUAD*)m_p1stBitmapBits;
         memset(&m_bm2ndBitmap, 0, sizeof(BITMAP));
     }
 
@@ -189,6 +244,25 @@ public:
     CModularAssistDevice* m_pAssistDeviceTool = &m_AssistDevice;
     CPublicToolClass m_PublicTool;
     CPublicToolClass* m_pAssistPublicTool = &m_PublicTool;
+    // step 7: scan start members
+    BYTE *m_p1stBitmapBits = NULL;
+    CBitmap m_1stImageBitmap, m_1stLayerBitmap;
+    BITMAP m_bm1stLayerBitmap, m_bm2ndLayerBitmap;
+    BYTE *m_p1stLayerBitmapBits = NULL, *m_p2ndLayerBitmapBits = NULL;
+    RGBQUAD *m_p1stLayerRgb = NULL, *m_p2ndLayerRgb = NULL;
+    CBitmap m_2ndLayer640x480Bitmap, m_2ndLayer1280x960Bitmap, m_2ndLayer2560x1920Bitmap, m_2ndFullSizeLayer2560x1920Bitmap;
+    int m_nLayerPhotoMode = 0, m_nNormalFullImageSizeFlag = 0, m_n2ndFullSizeImageScan = 0;
+    BOOL m_bCLOnOffFlag = TRUE;
+    void *m_pSEScanImageBufferA = NULL, *m_pSEScanImageBitmapA = NULL, *m_pSEScanImageBufferB = NULL, *m_pSEScanImageBitmapB = NULL;
+    CDCRec m_1stImageMemDC, m_1stLayerMemDC, m_1stImageInfoMemDC;
+    CDCRec m_2ndImage640x480MemDC, m_2ndImage1280x960MemDC, m_2ndImage2560x1920MemDC;
+    CDCRec m_2ndLayer640x480MemDC, m_2ndLayer1280x960MemDC, m_2ndLayer2560x1920MemDC, m_2ndImageInfoMemDC;
+    CModularScanCalibrationToolDlg m_wndScanCalibrationToolDlg;
+    UINT_PTR SetTimer(UINT_PTR id, UINT ms, void*) { fprintf(g_out, "TIMER SET %u %u\n", (unsigned)id, ms); return id; }
+    BOOL KillTimer(UINT_PTR id) { fprintf(g_out, "TIMER KILL %u\n", (unsigned)id); return TRUE; }
+    void DrawAll1stLayerObjectList() { fprintf(g_out, "LAYER DrawAll1stLayerObjectList\n"); }
+    // Draw1stREDScanBox draws with GDI pens on the 1st memory DC: the C# port hands it to the screen, so both record the box
+    void Draw1stREDScanBox(int l, int t, int r, int b, COLORREF c) { fprintf(g_out, "REDBOX %d %d %d %d %u\n", l, t, r, b, (unsigned)c); }
 
     // ---- other dialog methods the image code calls (outside the pasted range) ----
     BOOL IsRunImageGrab(int) { return FALSE; }
@@ -206,8 +280,22 @@ public:
     UINT SemSEPhotoScan345ImageDataUpdateProcessing(void);
     UINT SemSEPhotoScan6ImageDataUpdateProcessing(void);
     UINT SemSEPhotoScanOverlapModeImageDataUpdateProcessing(void);
+    int SemScanModeSelectAndScanStart(int nScanMode, int nScanWidth, int nScanHeight, int nBitmapXOffset, int nBitmapYOffset, int nBitmapAverage, BOOL bScanGeneration);
+    int SemSlow12ScanModeSelectAndScanStart(int nScanMode, int nScanWidth, int nScanHeight, int nBitmapXOffset, int nBitmapYOffset, int nBitmapAverage);
+    void Fill1stImageBitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill, BOOL bDCClear = FALSE);
+    void Fill1stLayerBitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill, BOOL bDCClear = FALSE);
+    void Fill1stImageInfoBitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill);
+    void Fill2ndImage640x480Bitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill, BOOL bDCClear = FALSE);
+    void Fill2ndLayer640x480Bitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill, BOOL bDCClear = FALSE);
+    void Fill2ndImage1280x960Bitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill, BOOL bDCClear = FALSE);
+    void Fill2ndLayer1280x960Bitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill, BOOL bDCClear = FALSE);
+    void Fill2ndImage2560x1920Bitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill, BOOL bDCClear = FALSE);
+    void Fill2ndLayer2560x1920Bitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill, BOOL bDCClear = FALSE);
+    void Fill2ndImageInfoBitmap(int nX, int nY, int nWidth, int nHeight, COLORREF colorFill);
 };
 
+#include "scan_start.inc"
+#include "fill_bitmaps.inc"
 #include "image_methods.inc"
 #include "insert_sort.inc"
 #include "histogram.inc"
@@ -248,6 +336,7 @@ static std::vector<MemberDef> Members(CNanoImpact2020cfeDlg* d)
     M('I', m_nReceiveDataCount) M('I', m_nReceiveTotalImageCount) M('U', m_dwDisplayFrameCount) M('U', m_dwDisplayUpdateCount)
     M('U', m_dwFirstTick) M('U', m_dwFrameDataCount) M('U', m_dwFrameUpdateCount) M('U', m_dwSecondTick) M('I', m_bPhotoCalibrationFlag)
     M('I', m_nAutoProcessRunStatus) M('I', m_nHistogramAnalysisBright) M('I', m_nHistogramAnalysisContrasrt) M('I', m_nHistogramAnalysisGamma)
+    M('I', m_nLayerPhotoMode) M('I', m_nNormalFullImageSizeFlag) M('I', m_n2ndFullSizeImageScan) M('I', m_nSemSEScanImageReadStart) M('I', m_nSemSEScanImageReadSize)
 #undef M
     m.push_back(MemberDef{ "m_wndScanControlDlg.m_bPhotoFilter1SelectFlag", 'I', &d->m_wndScanControlDlg.m_bPhotoFilter1SelectFlag });
     m.push_back(MemberDef{ "m_wndScanControlDlg.m_bOldPhotoFilter1SelectFlag", 'I', &d->m_wndScanControlDlg.m_bOldPhotoFilter1SelectFlag });
@@ -305,6 +394,9 @@ static void Dump()
     size_t n2 = (size_t)d->m_bm2ndBitmap.bmWidth * d->m_bm2ndBitmap.bmHeight * 4;
     fprintf(g_out, "H 2ndRgb %016llX\n", d->m_p2ndBitmapBits ? Fnv(d->m_p2ndBitmapBits, n2) : 0ULL);
     fprintf(g_out, "H 2ndOrg %016llX\n", d->m_p2ndOrgBitmapBits ? Fnv(d->m_p2ndOrgBitmapBits, n2) : 0ULL);
+    size_t nl = (size_t)d->m_bm2ndLayerBitmap.bmWidth * d->m_bm2ndLayerBitmap.bmHeight * 4;
+    fprintf(g_out, "H 2ndLayer %d %d %016llX\n", (int)d->m_bm2ndLayerBitmap.bmWidth, (int)d->m_bm2ndLayerBitmap.bmHeight, d->m_p2ndLayerBitmapBits ? Fnv(d->m_p2ndLayerBitmapBits, nl) : 0ULL);
+    fprintf(g_out, "H 2ndBmp %d %d\n", (int)d->m_bm2ndBitmap.bmWidth, (int)d->m_bm2ndBitmap.bmHeight);
 }
 
 // same generator as NanoImpact.Verify ImageHarness: xorshift32, pixels 1..254
@@ -372,6 +464,27 @@ int main(int argc, char** argv)
             Feed(data, data.size());
         }
         else if (cmd == "DUMP") Dump();
+        else if (cmd == "SCAN" && tok.size() >= 8)
+        {
+            // SCAN mode width height xoff yoff average generation = SemScanModeSelectAndScanStart (step 7)
+            int r = g_dlg->SemScanModeSelectAndScanStart(atoi(tok[1].c_str()), atoi(tok[2].c_str()), atoi(tok[3].c_str()), atoi(tok[4].c_str()), atoi(tok[5].c_str()), atoi(tok[6].c_str()), atoi(tok[7].c_str()));
+            fprintf(g_out, "RET %d\n", r);
+            PrintState();
+        }
+        else if (cmd == "SLOW12" && tok.size() >= 7)
+        {
+            int r = g_dlg->SemSlow12ScanModeSelectAndScanStart(atoi(tok[1].c_str()), atoi(tok[2].c_str()), atoi(tok[3].c_str()), atoi(tok[4].c_str()), atoi(tok[5].c_str()), atoi(tok[6].c_str()));
+            fprintf(g_out, "RET %d\n", r);
+            PrintState();
+        }
+        else if (cmd == "OPT" && tok.size() >= 3) g_integrated.nScanOptionData[atoi(tok[1].c_str())] = atoi(tok[2].c_str());
+        else if (cmd == "BOPT" && tok.size() >= 3) g_integrated.bScanOptionFlag[atoi(tok[1].c_str())] = atoi(tok[2].c_str());
+        else if (cmd == "CL" && tok.size() >= 6)
+        {
+            // CL <AfxIntegratedGetCL1> <GetCL2> <panel GetCurrentCL1Value> <CL2> <m_bCLOnOffFlag>
+            g_cl1 = atoi(tok[1].c_str()); g_cl2 = atoi(tok[2].c_str()); g_curCL1 = atoi(tok[3].c_str()); g_curCL2 = atoi(tok[4].c_str());
+            g_dlg->m_bCLOnOffFlag = atoi(tok[5].c_str());
+        }
         else fprintf(g_out, "UNKNOWN %s\n", cmd.c_str());
         fflush(g_out);
     }

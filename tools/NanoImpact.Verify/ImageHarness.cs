@@ -33,12 +33,17 @@ namespace NanoImpact.Verify
             "m_nReceiveTotalImageCount:I", "m_dwDisplayFrameCount:U", "m_dwDisplayUpdateCount:U", "m_dwFirstTick:U", "m_dwFrameDataCount:U",
             "m_dwFrameUpdateCount:U", "m_dwSecondTick:U", "m_bPhotoCalibrationFlag:I", "m_nAutoProcessRunStatus:I", "m_nHistogramAnalysisBright:I",
             "m_nHistogramAnalysisContrasrt:I", "m_nHistogramAnalysisGamma:I",
+            "m_nLayerPhotoMode:I", "m_nNormalFullImageSizeFlag:I", "m_n2ndFullSizeImageScan:I", "m_nSemSEScanImageReadStart:I", "m_nSemSEScanImageReadSize:I",
         };
+
+        private readonly RecScanDevice _scanDev;
+        private int _curCL1, _curCL2;
 
         private ImageHarness(TextWriter output, string fieldsInc)
         {
             _out = output;
-            _p = new SemScanImageProcessor(this, () => _integrated);
+            _scanDev = new RecScanDevice(output);
+            _p = new SemScanImageProcessor(this, () => _integrated, _scanDev);
             foreach (string line in File.ReadLines(fieldsInc))
             {
                 Match m = Regex.Match(line, @"^FIELD(A?)\((\w), (\w+)(?:, (\w+))?\)");
@@ -104,6 +109,33 @@ namespace NanoImpact.Verify
                 }
                 case "DUMP":
                     Dump();
+                    break;
+                case "SCAN" when tok.Length >= 8:
+                {
+                    int[] a = tok.Skip(1).Take(7).Select(x => int.Parse(x, CultureInfo.InvariantCulture)).ToArray();
+                    _out.WriteLine("RET " + _p.SemScanModeSelectAndScanStart(a[0], a[1], a[2], a[3], a[4], a[5], a[6]));
+                    PrintState();
+                    break;
+                }
+                case "SLOW12" when tok.Length >= 7:
+                {
+                    int[] a = tok.Skip(1).Take(6).Select(x => int.Parse(x, CultureInfo.InvariantCulture)).ToArray();
+                    _out.WriteLine("RET " + _p.SemSlow12ScanModeSelectAndScanStart(a[0], a[1], a[2], a[3], a[4], a[5]));
+                    PrintState();
+                    break;
+                }
+                case "OPT" when tok.Length >= 3:
+                    _integrated.nScanOptionData[int.Parse(tok[1], CultureInfo.InvariantCulture)] = int.Parse(tok[2], CultureInfo.InvariantCulture);
+                    break;
+                case "BOPT" when tok.Length >= 3:
+                    _integrated.bScanOptionFlag[int.Parse(tok[1], CultureInfo.InvariantCulture)] = int.Parse(tok[2], CultureInfo.InvariantCulture);
+                    break;
+                case "CL" when tok.Length >= 6:
+                    _scanDev.CL1 = int.Parse(tok[1], CultureInfo.InvariantCulture);
+                    _scanDev.CL2 = int.Parse(tok[2], CultureInfo.InvariantCulture);
+                    _curCL1 = int.Parse(tok[3], CultureInfo.InvariantCulture);
+                    _curCL2 = int.Parse(tok[4], CultureInfo.InvariantCulture);
+                    _scanDev.CLOnOff = int.Parse(tok[5], CultureInfo.InvariantCulture);
                     break;
                 default:
                     _out.WriteLine("UNKNOWN " + tok[0]);
@@ -214,6 +246,28 @@ namespace NanoImpact.Verify
             int n2 = _p.m_bm2ndBitmap.bmWidth * _p.m_bm2ndBitmap.bmHeight;
             _out.WriteLine("H 2ndRgb " + Hex(_p.m_p2ndBitmapBits == null ? 0 : Fnv(_p.m_p2ndBitmapBits, n2)));
             _out.WriteLine("H 2ndOrg " + Hex(_p.m_p2ndOrgBitmapBits == null ? 0 : Fnv(_p.m_p2ndOrgBitmapBits, n2)));
+            int nl = _p.m_bm2ndLayerBitmap.bmWidth * _p.m_bm2ndLayerBitmap.bmHeight;
+            _out.WriteLine("H 2ndLayer " + _p.m_bm2ndLayerBitmap.bmWidth + " " + _p.m_bm2ndLayerBitmap.bmHeight + " " + Hex(_p.m_p2ndLayerBitmapBits == null ? 0 : Fnv(_p.m_p2ndLayerBitmapBits, nl)));
+            _out.WriteLine("H 2ndBmp " + _p.m_bm2ndBitmap.bmWidth + " " + _p.m_bm2ndBitmap.bmHeight);
+        }
+
+        /// <summary>harness.cpp의 DEV 기록 (스캔 시작이 부르는 장치 쪽)</summary>
+        private sealed class RecScanDevice : IScanDevice
+        {
+            private readonly TextWriter _out;
+            public RecScanDevice(TextWriter o) { _out = o; }
+            public int CL1, CL2, CLOnOff = 1;
+            public void SetSEMImageCaptureOnOffValueUsbDeviceData(int a, int b) => _out.WriteLine("DEV SetSEMImageCaptureOnOffValueUsbDeviceData " + a + " " + b);
+            public void SetSEMScanGenerationValueUsbDeviceData(int a) => _out.WriteLine("DEV SetSEMScanGenerationValueUsbDeviceData " + a);
+            public void SetSEMSlow12ImageCaptureOnUsbDeviceData(int a) => _out.WriteLine("DEV SetSEMSlow12ImageCaptureOnUsbDeviceData " + a);
+            public void ExecuteCLLMHModeData(int a, int b) => _out.WriteLine("DEV ExecuteCLLMHModeData " + a + " " + b);
+            public int AfxIntegratedGetCL1() => CL1;
+            public int AfxIntegratedGetCL2() => CL2;
+            public void AfxIntegratedSetCL1(int n) => _out.WriteLine("DEV AfxIntegratedSetCL1 " + n);
+            public void AfxIntegratedSetCL1() => _out.WriteLine("DEV AfxIntegratedSetCL1");
+            public void AfxIntegratedSetCL2(int n) => _out.WriteLine("DEV AfxIntegratedSetCL2 " + n);
+            public void AfxIntegratedSetCL2() => _out.WriteLine("DEV AfxIntegratedSetCL2");
+            public int m_bCLOnOffFlag => CLOnOff;
         }
 
         private static string Hex(ulong v) => v.ToString("X16", CultureInfo.InvariantCulture);
@@ -265,5 +319,12 @@ namespace NanoImpact.Verify
         public bool IsRunImageGrab(int type) => false;
         public void SetImageGrabEnd(int ok, RGBQUAD[] rgb) => _out.WriteLine("GRABEND");
         public uint GetTickCount() => _tick;
+        public void DcFill(string dc, int x, int y, int width, int height, uint color) => _out.WriteLine("DC " + dc + " " + x + " " + y + " " + width + " " + height + " " + color);
+        public void DrawRedScanBox(int left, int top, int right, int bottom, uint color) => _out.WriteLine("REDBOX " + left + " " + top + " " + right + " " + bottom + " " + color);
+        public void DrawLayerObjects(string which) => _out.WriteLine("LAYER " + which);
+        public void SetTimer(int id, int elapse) => _out.WriteLine("TIMER SET " + id + " " + elapse);
+        public void KillTimer(int id) => _out.WriteLine("TIMER KILL " + id);
+        public void ScanCalibration(string action, string argument) => _out.WriteLine("CAL " + action + " " + argument);
+        public int GetCurrentCLValue(int n) => n == 1 ? _curCL1 : _curCL2;
     }
 }

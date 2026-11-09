@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 7단계 WPF 셸: 원본 메인 화면(CNanoImpact2020cfeDlg)의 영역·기능을 WPF 표준 컨트롤로 새로 배치 -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>NanoImpact.App</RootNamespace>
+    <AssemblyName>NanoImpact</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NanoImpact.Core\NanoImpact.Core.csproj" />
+    <ProjectReference Include="..\NanoImpact.Hardware\NanoImpact.Hardware.csproj" />
+  </ItemGroup>
+</Project>

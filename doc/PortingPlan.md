@@ -48,7 +48,7 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 | 5 | Spellman C-FE HV | RS232 포트(`USB_RS232_Comm.cpp` → `UsbRS232Comm`, Win32 함수는 `ISerialCommApi`, 실제는 `SerialPort`), 빔 창 송신·감시 타이머(`CfeHVPowerControl`), 메인 화면 LF 조립·응답 해석·모니터 창 램핑 상태(`CfeHVPowerMonitor`), 화면은 `ICfeHVPowerView` | **완료, 원본 대조 일치** (장비 미시험) — 빔 창 버튼 처리(`OnBnClickedBeamControl*`)는 8단계, 실제 타이머·스레드 연결은 6~7단계 |
 | 6a | 장비 명령 묶음·실제 호스트 | `ModularAssistDevice.cpp` 전체 → `AssistDevice` (154개 번역 후 손질, 메인 화면 호출은 `IAssistOwner`), 공용 상태 `VACUUM_BEAM_ALIGN_FOCUS_DATA`, 실제 `DeviceHost`(UI 스레드 SendMessage/PostMessage, 실제 스레드) | **완료, 원본 대조 일치** (장비 미시험) |
 | 6b | 메인 화면 장치 처리기 | 메인의 `OnSemControl*Data`/`OnSemHWSetup*`/`OnSemControlStage*`(장치 → 화면, `UM_USB_SBR_*`), `OnSetUsbDevice*`/`OnGetUsbDevice*`(화면 → 장치) 83개 약 6천 줄 → `MainDeviceService` (원본 메시지 맵 118항목), 패널 10개는 생성한 인터페이스, 범위 밖 화면 함수는 `IMainDeviceView` | **완료, 원본 대조 일치** (장비 미시험) — 패널 구현은 8단계, 화면 함수·메인 생성자 초기값은 7단계 |
-| 7 | WPF 셸 | 상단 바, 영상 4칸, 오른쪽 탭(Scan/Focus/Beam/Align/Vacuum/Option), Stage/CFE-HV, 하단 Detail, 캡처 목록 | |
+| 7 | WPF 셸 | 상단 바, 영상 4칸, 오른쪽 탭(Scan/Focus/Beam/Align/Vacuum/Option), Stage/CFE-HV, 하단 Detail, 캡처 목록. 원본과 같은 영역·기능을 표준 컨트롤로 새로 배치(창 크기에 맞춤). 조립 루트·창 1번 분배·타이머·시작(단계 0~9)·종료 순서, 스캔 시작·비트맵 채우기 번역, `--sim` 시뮬레이터 | **완료** — 스캔 시작은 원본 대조 일치, 앱은 시뮬레이터로 시작·스캔 7종·종료 확인 (장비 미시험). 패널은 8단계 전까지 호출 기록용 임시 패널 |
 | 8 | 제어 패널 | Vacuum → Beam → CFE 모니터 → Focus·Align·Scan → Stage(+Load/Unload) → Detail | |
 | 9 | 자동 기능 | 자동 시작 상태 기계, Auto Focus/Contrast/Brightness/Gun Align (OpenCV → OpenCvSharp 또는 HW_AF.dll) | |
 | 10 | 주변·보정 | 이미지 캡처·저장, 카메라(TVideoGrabber), Monogram 단축키, Environment, Stage/Scan/SRot 보정 | |
@@ -166,3 +166,35 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
   장비 응답(rx) → 처리기 → 패널, 패널 명령(assist) → 처리기 → 장비 쓰기가 끝에서 끝까지 비교된다.
   main0/1/2 각 2,404~2,411 호출(메시지 118종 × 처리기가 비교하는 요청 번호·옵션·데이터값·상태값), main_auto 340 호출(자동 기능 결과 × 이전 스캔 모드),
   기존 rx/assist/sweep 시나리오 모두 같음. 패널 메서드 118개와 컨트롤 2개가 모두 한 번 이상 불렸다.
+
+### WPF 셸 (7단계)
+
+- `src\NanoImpact.App` (net48 WPF x86, 실행 파일 `NanoImpact.exe`) — 원본 2560×1440 비트맵 스킨 대신 같은 영역을 표준 컨트롤로 새로 배치했다.
+  상단 막대(진공 상태, START/STANDBY, AIR/EVAC, GUN HV·배율 콤보, 자동 기능 버튼, FE HV·추출기 전류), 1st 라이브 / 2nd 포토 / 3rd 카메라 /
+  4th 히스토그램, 오른쪽 제어 탭(SCAN·FOCUS·BEAM·ALIGN·VACUUM·OPTION), STAGE·CFE-HV·NAVI, 아래 DETAIL·캡처 목록·패널 호출·기록. 칸 사이는 끌어서 크기 조절.
+- 조립 루트 `Composition\MainShell` = 원본 `CNanoImpact2020cfeDlg`의 뼈대:
+  - `DeviceHost`(Dispatcher 문맥) → `SemDevice`(실제 `Ftd2xxApi` 또는 `--sim`의 `SimFtdi`) → `AssistDevice` → `MainDeviceService`(임시 패널) →
+    `SemScanImageProcessor`(SE 스캔 공용 상태를 장치 처리기와 함께 씀) → `CfeHVPowerMonitor`(`SerialCommApi`).
+  - 창 1번 처리기: `UM_SEM_SE_SCAN_IMAGE_DATA` → 영상 조립, `UM_CFE_HV_POWER_CONTROL_*` → Spellman, 자동 기능 영상 5종은 9단계, 나머지는 원본 메시지 맵(`MainDeviceService.Dispatch`).
+    창 3·4번(Scan·Stage 보정 창)은 8단계 전까지 기록만.
+  - 타이머: 창마다 `TimerTable`(DispatcherTimer, 원본 SetTimer/KillTimer 의미). 메인 `OnTimer`는 영상 표시(10/11/20/21/22), 배율 가속(40), 진공 깜빡임(90),
+    시작(98), 종료(99)를 원본대로. Beam 창 Spellman 감시 타이머는 `CfeHVPowerControl.OnTimer`로.
+  - 시작: 원본 `OnInitDialog`의 장치 쪽(DLL, 공용 데이터, `CLIENTPUBLICDATA.INI`, Spellman COM 115200) → 타이머 98 단계 0 `DialogStart`(장치 서버 경로·소유 창·
+    `UsbDeviceConnect`) → 1 CNC 송신 스레드 → 2초 뒤 2~7 `RM0;`~`RP2;` → 8 Air→Evac 대기 상태 해제 → 9 Spellman 감시 시작·조이스틱 타이머.
+  - 종료: 원본 `OnClose` — HV 동작 중이면 거부, 확인 → 스레드 정지 표시·RS232 닫기 → 500 ms 뒤 캡처 끔·장치 기본값·`USBINTEGRATEDDATA.INI` 저장·
+    Scan Bridge 끔 → `OnDestroy`(USB 끊기, `CLIENTPUBLICDATA.INI` 저장, 공용 데이터 해제). 시스템 끄기(99) 갈래는 8단계 확인 창과 함께.
+- 스캔 시작·비트맵 채우기 번역: `Imaging\Port\SemScanImageProcessor.L09564.cs`(스캔 시작 2개), `.L07342.cs`(RED 상자), `.L07791.cs`(Fill* 10개).
+  장치 쪽은 `IScanDevice`(앱: `ScanDeviceAdapter` = AssistDevice + Afx CL + 메인 `m_bCLOnOffFlag`), 화면 쪽은 `IScanImageView`에 7개 추가
+  (메모리 DC 칠하기, RED 상자, 레이어 다시 그리기, 타이머, Scan 보정 창, 현재 CL).
+  원본 대조 `tools\image_harness` scan 572 블록 같음, 기존 5개 시나리오도 그대로 같음.
+- 화면 그리기: 처리기의 `RGBQUAD[]`를 `WriteableBitmap`(Bgr32)으로. 원본은 SE 데이터를 받을 때마다 1st 영상을 다시 그리므로(약 100회/s)
+  화면 갱신 주기마다 마지막 요청 한 번만 옮긴다. 포토는 `m_2ndImage*Bitmap`(원본 `SetBitmapBits` 대상)을 그린다.
+  정보 띠의 눈금자·글꼴 그림과 측정 레이어는 10단계, 정보 글자(`SetClientInfomation0N`)는 DETAIL 칸에.
+- 임시 패널: `NanoImpact.CodeGen panels`의 8번째 인자로 `Placeholders\PanelStubs.g.cs`를 같이 만든다(인터페이스 10개 구현, 부른 내용을 PANEL CALLS 칸에).
+  SCAN 탭의 RED~PHOTO6 버튼은 원본 `CModularScanControlDlg::OnBnClickedScanControl*Btn`과 같은 요청(`OnSetSemSEScanControlDataUpdate`)을 만든다 — 8단계에서 실제 Scan 패널로 바꾼다.
+- 실행: `NanoImpact.exe [--sim] [--ini <INI 폴더>]` (기본 INI 폴더 = 실행 파일 폴더, 원본 `GetExecutedPath`).
+  `--sim`: `SimFtdi`가 FT232H 3개를 연 것처럼 하고, 캡처가 켜지면 `SimScanSource`가 원본 SE 형식(FF 밝기 대비, 줄 사이 00, 화소 01~FE)으로 합성 영상을 넣는다 →
+  **실제 SE 수신 스레드 → 창 메시지 → 영상 조립 → 화면**이 그대로 돈다. 프레임 시간은 줄였다(RED 33 ms, FAST 66 ms, SLOW1 1.6 s, SLOW2 3 s, PHOTO 2~10 s). RS232는 열지 않는다.
+- 2026-11-09 시뮬레이터 확인(`tools\app_smoke\drive_app.ps1`: UI Automation으로 버튼을 눌러 화면 저장): 시작 단계 0→9, FAST·RED(상자·바탕)·SLOW1 라이브, PHOTO1·4·6 완성과 히스토그램,
+  종료 확인 창 아니오 → 계속, 예 → 스레드 정지·INI 저장 후 프로세스 스스로 끝남. 기록 칸에 스레드 예외·처리기 없는 메시지 없음.
+- 장비 시험 항목: 실제 FT232H 열기 순서와 SE 영상 속도, Spellman COM 포트, 종료 때 Scan Bridge 끔, 다른 스레드 SendMessage와 UI 대기 사이의 교착 여부.

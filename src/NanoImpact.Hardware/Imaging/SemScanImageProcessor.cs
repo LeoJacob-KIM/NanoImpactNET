@@ -60,6 +60,49 @@ namespace NanoImpact.Hardware.Imaging
 
         /// <summary>원본 ::GetTickCount</summary>
         uint GetTickCount();
+
+        // ---- 7단계: 스캔 시작(SemScanModeSelectAndScanStart)이 쓰는 화면 쪽 ----
+
+        /// <summary>원본 메모리 DC FillSolidRect (m_1stImageMemDC, m_2ndImage640x480MemDC, m_2ndLayer*MemDC, m_*InfoMemDC 등) — 배경 칠하기</summary>
+        void DcFill(string dc, int x, int y, int width, int height, uint color);
+
+        /// <summary>원본 Draw1stREDScanBox — RED 스캔 영역 테두리 (1st 이미지 위)</summary>
+        void DrawRedScanBox(int left, int top, int right, int bottom, uint color);
+
+        /// <summary>원본 DrawAll1stLayerObjectList 등 — 측정 레이어 객체 다시 그리기 (10단계)</summary>
+        void DrawLayerObjects(string which);
+
+        /// <summary>원본 메인 화면 SetTimer/KillTimer (TIMER_ID_SE_*_IMAGE_DISPLAY) — 영상 표시 주기</summary>
+        void SetTimer(int id, int elapse);
+
+        void KillTimer(int id);
+
+        /// <summary>원본 m_wndScanCalibrationToolDlg 호출 (SemSEScanModeDataUpdateControl 등)</summary>
+        void ScanCalibration(string action, string argument);
+
+        /// <summary>원본 m_wndScanCalibrationToolDlg.GetCurrentCL1Value()/GetCurrentCL2Value() (n = 1, 2)</summary>
+        int GetCurrentCLValue(int n);
+    }
+
+    /// <summary>
+    /// 스캔 시작이 부르는 장치 쪽 (원본 m_pAssistDeviceTool->*, Afx* CL 함수, 메인 화면 m_bCLOnOffFlag).
+    /// 실제 앱은 AssistDevice·SemDevice·MainDeviceService를 묶은 구현, 원본 대조는 기록 구현.
+    /// </summary>
+    public interface IScanDevice
+    {
+        void SetSEMImageCaptureOnOffValueUsbDeviceData(int nOnOff, int nScanMode);
+        void SetSEMScanGenerationValueUsbDeviceData(int nScanMode);
+        void SetSEMSlow12ImageCaptureOnUsbDeviceData(int nScanMode);
+        void ExecuteCLLMHModeData(int nCLLMHMode, int nCLLMH123Mode);
+        int AfxIntegratedGetCL1();
+        int AfxIntegratedGetCL2();
+        void AfxIntegratedSetCL1(int nCL1);
+        void AfxIntegratedSetCL1();
+        void AfxIntegratedSetCL2(int nCL2);
+        void AfxIntegratedSetCL2();
+
+        /// <summary>원본 메인 화면 m_bCLOnOffFlag</summary>
+        int m_bCLOnOffFlag { get; }
     }
 
     /// <summary>
@@ -78,15 +121,39 @@ namespace NanoImpact.Hardware.Imaging
 
         private readonly IScanImageView _view;
         private readonly Func<IntegratedCommandStruct> _integrated;
+        private readonly IScanDevice m_dev;
 
         /// <param name="view">화면 쪽</param>
         /// <param name="integrated">원본 AfxGetIntegratedPointer() (장치 계층의 공용 데이터)</param>
-        public SemScanImageProcessor(IScanImageView view, Func<IntegratedCommandStruct> integrated)
+        /// <param name="device">스캔 시작이 부르는 장치 쪽 (영상 조립만 쓸 때는 null)</param>
+        /// <param name="scanControlData">SE 스캔 공용 상태 (메인 화면 장치 처리기와 같은 객체, null이면 새로)</param>
+        public SemScanImageProcessor(IScanImageView view, Func<IntegratedCommandStruct> integrated, IScanDevice device = null,
+            SEM_SE_SCAN_CONTROL_PUBLIC_DATA scanControlData = null)
         {
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _integrated = integrated ?? throw new ArgumentNullException(nameof(integrated));
+            m_dev = device;
+            if (scanControlData != null) m_SemSEScanControlPublicData = scanControlData;
+            m_pAssistDeviceTool = new ModularAssistDevice(device);
             m_wndDetailControlDlg = new DetailControlDlg(view);
             m_wndScanControlDlg = new ScanControlDlg(view);
+            m_wndScanCalibrationToolDlg = new ScanCalibrationToolDlg(view);
+            m_1stImageBitmap = new CBitmap(view, "1stImage", STD_SE_SCAN_IMAGE_WIDTH, STD_SE_SCAN_IMAGE_HEIGHT);
+            m_1stLayerBitmap = new CBitmap(view, "1stLayer", STD_SE_SCAN_IMAGE_WIDTH, STD_SE_SCAN_IMAGE_HEIGHT);
+            m_2ndLayer640x480Bitmap = new CBitmap(view, "2ndLayer640x480", 640, 480);
+            m_2ndLayer1280x960Bitmap = new CBitmap(view, "2ndLayer1280x960", 1280, 960);
+            m_2ndLayer2560x1920Bitmap = new CBitmap(view, "2ndLayer2560x1920", 2560, 1920);
+            m_2ndFullSizeLayer2560x1920Bitmap = new CBitmap(view, "2ndFullSizeLayer2560x1920", 2560, 1920);
+            m_1stImageMemDC = new MemDC(view, "1stImageMemDC");
+            m_1stLayerMemDC = new MemDC(view, "1stLayerMemDC");
+            m_1stImageInfoMemDC = new MemDC(view, "1stImageInfoMemDC");
+            m_2ndImage640x480MemDC = new MemDC(view, "2ndImage640x480MemDC");
+            m_2ndImage1280x960MemDC = new MemDC(view, "2ndImage1280x960MemDC");
+            m_2ndImage2560x1920MemDC = new MemDC(view, "2ndImage2560x1920MemDC");
+            m_2ndLayer640x480MemDC = new MemDC(view, "2ndLayer640x480MemDC");
+            m_2ndLayer1280x960MemDC = new MemDC(view, "2ndLayer1280x960MemDC");
+            m_2ndLayer2560x1920MemDC = new MemDC(view, "2ndLayer2560x1920MemDC");
+            m_2ndImageInfoMemDC = new MemDC(view, "2ndImageInfoMemDC");
             m_ClientInfoText3 = new CStatic(view, "ClientInfoText3");
             m_ClientInfoText4 = new CStatic(view, "ClientInfoText4");
             m_2ndImage640x480Bitmap = new CBitmap(view, "2ndImage640x480", 640, 480);
@@ -105,7 +172,70 @@ namespace NanoImpact.Hardware.Imaging
             m_pSemSEScanImageBitmapBufferBF2 = new byte[MAX_SE_SCAN_IMAGE_WIDTH * MAX_SE_SCAN_IMAGE_HEIGHT];
             m_bm1stBitmap = new BITMAP { bmWidth = STD_SE_SCAN_IMAGE_WIDTH, bmHeight = STD_SE_SCAN_IMAGE_HEIGHT, bmWidthBytes = STD_SE_SCAN_IMAGE_WIDTH * 4, bmPlanes = 1, bmBitsPixel = 32 };
             m_p1stImageRgb = new RGBQUAD[STD_SE_SCAN_IMAGE_WIDTH * STD_SE_SCAN_IMAGE_HEIGHT];
+            m_p1stBitmapBits = m_p1stImageRgb;
             m_bm2ndBitmap = new BITMAP();
+            m_bm2ndLayerBitmap = new BITMAP();
+            m_bm1stLayerBitmap = new BITMAP();
+        }
+
+        // ---- 7단계: 스캔 시작이 쓰는 원본 멤버 ----
+
+        public RGBQUAD[] m_p1stBitmapBits;               // 원본 BYTE* — m_p1stImageRgb와 같은 메모리
+        public readonly CBitmap m_1stImageBitmap;
+        public readonly CBitmap m_1stLayerBitmap;
+        public BITMAP m_bm1stLayerBitmap;
+        public RGBQUAD[] m_p1stLayerBitmapBits;
+        public RGBQUAD[] m_p1stLayerRgb;
+        public BITMAP m_bm2ndLayerBitmap;
+        public RGBQUAD[] m_p2ndLayerBitmapBits;          // 원본 BYTE* — m_p2ndLayerRgb와 같은 메모리
+        public RGBQUAD[] m_p2ndLayerRgb;
+        public readonly CBitmap m_2ndLayer640x480Bitmap;
+        public readonly CBitmap m_2ndLayer1280x960Bitmap;
+        public readonly CBitmap m_2ndLayer2560x1920Bitmap;
+        public readonly CBitmap m_2ndFullSizeLayer2560x1920Bitmap;
+        public int m_nLayerPhotoMode;
+        public int m_nNormalFullImageSizeFlag;            // 0 = 보통 크기, 1 = 전체 화면 (원본 메인 화면)
+        public int m_n2ndFullSizeImageScan;
+        public object m_pSEScanImageBufferA, m_pSEScanImageBitmapA, m_pSEScanImageBufferB, m_pSEScanImageBitmapB; // 원본에서 쓰지 않는 포인터 (NULL로만)
+        public readonly MemDC m_1stImageMemDC, m_1stLayerMemDC, m_1stImageInfoMemDC;
+        public readonly MemDC m_2ndImage640x480MemDC, m_2ndImage1280x960MemDC, m_2ndImage2560x1920MemDC;
+        public readonly MemDC m_2ndLayer640x480MemDC, m_2ndLayer1280x960MemDC, m_2ndLayer2560x1920MemDC, m_2ndImageInfoMemDC;
+        public readonly ScanCalibrationToolDlg m_wndScanCalibrationToolDlg;
+
+        private int m_bCLOnOffFlag => m_dev != null ? m_dev.m_bCLOnOffFlag : TRUE;
+        private void SetTimer(int id, int elapse, int _) => _view.SetTimer(id, elapse);
+        private void KillTimer(int id) => _view.KillTimer(id);
+        private void DrawAll1stLayerObjectList() => _view.DrawLayerObjects("DrawAll1stLayerObjectList");
+        private static uint RGB(int r, int g, int b) => (uint)((r & 0xFF) | ((g & 0xFF) << 8) | ((b & 0xFF) << 16));
+
+        // 원본 메인 화면 타이머 번호 (NanoImpact2020cfeDlg.cpp:408-412)
+        private const int TIMER_ID_SE_SCAN_IMAGE_DISPLAY = 10;
+        private const int TIMER_ID_SE_SCAN_IMAGE_DISPLAY_NEXT = 11;
+        private const int TIMER_ID_SE_PHOTO12_SCAN_IMAGE_DISPLAY = 20;
+        private const int TIMER_ID_SE_PHOTO345_SCAN_IMAGE_DISPLAY = 21;
+        private const int TIMER_ID_SE_PHOTO6_SCAN_IMAGE_DISPLAY = 22;
+        // NanoImpact2020cfeDlg.cpp:429-432
+        private const int SE_SCAN_IMAGE_UPDATE_ELAPSE_TIME = 50;
+        private const int SE_PHOTO12_SCAN_IMAGE_UPDATE_ELAPSE_TIME = 50;
+        private const int SE_PHOTO345_SCAN_IMAGE_UPDATE_ELAPSE_TIME = 50;
+        private const int SE_PHOTO6_SCAN_IMAGE_UPDATE_ELAPSE_TIME = 50;
+
+        /// <summary>원본 메모리 DC (화면 쪽이 그린다). 배경 칠하기만 쓴다.</summary>
+        public sealed class MemDC
+        {
+            private readonly IScanImageView _v;
+            private readonly string _name;
+            internal MemDC(IScanImageView v, string name) { _v = v; _name = name; }
+            public void FillSolidRect(int x, int y, int w, int h, uint color) => _v.DcFill(_name, x, y, w, h, color);
+        }
+
+        public sealed class ScanCalibrationToolDlg
+        {
+            private readonly IScanImageView _v;
+            internal ScanCalibrationToolDlg(IScanImageView v) { _v = v; }
+            public void SemSEScanModeDataUpdateControl(int nScanMode) => _v.ScanCalibration("SemSEScanModeDataUpdateControl", nScanMode.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            public int GetCurrentCL1Value() => _v.GetCurrentCLValue(1);
+            public int GetCurrentCL2Value() => _v.GetCurrentCLValue(2);
         }
 
         // ---- 원본 멤버 (NanoImpact2020cfeDlg.h, 같은 이름) ----
@@ -160,7 +290,7 @@ namespace NanoImpact.Hardware.Imaging
         public readonly ScanControlDlg m_wndScanControlDlg;
         public readonly CStatic m_ClientInfoText3;
         public readonly CStatic m_ClientInfoText4;
-        public readonly ModularAssistDevice m_pAssistDeviceTool = new ModularAssistDevice();
+        public readonly ModularAssistDevice m_pAssistDeviceTool;
         public readonly PublicToolClass m_pAssistPublicTool;
 
         /// <summary>
@@ -228,6 +358,7 @@ namespace NanoImpact.Hardware.Imaging
             public int m_bPhotoFilter1SelectFlag;
             public int m_bOldPhotoFilter1SelectFlag;
             public void LoadPhotoFilterSelectButtonBitmapImage(int f1, int f2, int f3, int f4) => _v.ScanControl("PhotoFilterButtons", f1 + "," + f2 + "," + f3 + "," + f4);
+            public void SetMagnificationUpDown(int n) => _v.ScanControl("MagnificationUpDown", n.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         public sealed class CStatic
@@ -257,6 +388,14 @@ namespace NanoImpact.Hardware.Imaging
 
             public RGBQUAD[] Bits => _bits;
 
+            /// <summary>원본 GetBitmapBits(바이트 수, 버퍼) — 비트맵 내용을 버퍼로</summary>
+            public int GetBitmapBits(int byteCount, RGBQUAD[] bits)
+            {
+                int n = Math.Min(Math.Min(byteCount / 4, _bits.Length), bits.Length);
+                Array.Copy(_bits, bits, n);
+                return n * 4;
+            }
+
             public int SetBitmapBits(int byteCount, RGBQUAD[] bits)
             {
                 int n = Math.Min(byteCount / 4, _bits.Length);
@@ -268,6 +407,13 @@ namespace NanoImpact.Hardware.Imaging
 
         public sealed class ModularAssistDevice
         {
+            private readonly IScanDevice _d;
+            internal ModularAssistDevice(IScanDevice d) { _d = d; }
+            public void SetSEMImageCaptureOnOffValueUsbDeviceData(int nOnOff = 0, int nScanMode = 0) => _d.SetSEMImageCaptureOnOffValueUsbDeviceData(nOnOff, nScanMode);
+            public void SetSEMScanGenerationValueUsbDeviceData(int nScanMode = 0) => _d.SetSEMScanGenerationValueUsbDeviceData(nScanMode);
+            public void SetSEMSlow12ImageCaptureOnUsbDeviceData(int nScanMode = 0) => _d.SetSEMSlow12ImageCaptureOnUsbDeviceData(nScanMode);
+            public void ExecuteCLLMHModeData(int nCLLMHMode, int nCLLMH123Mode) => _d.ExecuteCLLMHModeData(nCLLMHMode, nCLLMH123Mode);
+
             // 원본 CModularAssistDevice::InsertSort (ModularAssistDevice.cpp:3915) — PHOTO IMAGE FILTERING을 위한 SORT 함수
             public void InsertSort(int[] pData, int n)
             {

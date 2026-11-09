@@ -12,6 +12,9 @@ copy /y ..\device_harness\shim\*.h out\src\ >nul
 copy /y scan_fields.inc out\src\ >nul
 set PS=powershell -NoProfile -ExecutionPolicy Bypass -File extract.ps1
 %PS% "%SRC%\NanoImpact2020cfeDlg.cpp" out\src\image_methods.inc 13488 16148 || exit /b 1
+rem step 7: scan start (SemScanModeSelectAndScanStart, SemSlow12...) and bitmap fills (Fill1stImageBitmap ... Fill2ndImageInfoBitmap)
+%PS% "%SRC%\NanoImpact2020cfeDlg.cpp" out\src\scan_start.inc 9564 10183 || exit /b 1
+%PS% "%SRC%\NanoImpact2020cfeDlg.cpp" out\src\fill_bitmaps.inc 7791 8090 || exit /b 1
 %PS% "%SRC%\ModularAssistDevice.cpp" out\src\insert_sort.inc 3915 || exit /b 1
 %PS% "%SRC%\PublicToolClass.cpp" out\src\histogram.inc 1592 || exit /b 1
 set FLAGS=/nologo /EHsc /fp:precise /DUNICODE /D_UNICODE /source-charset:.949 /wd4996 /wd4244 /wd4267 /wd4018 /wd4101 /wd4305 /wd4838 /wd4309 /wd5033

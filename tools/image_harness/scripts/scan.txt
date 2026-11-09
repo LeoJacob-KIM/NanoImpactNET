@@ -1,0 +1,89 @@
+INI ..\..\device_harness\out\ini\USBINTEGRATEDDATA.INI
+TICK 1000
+# --- invalid mode: returns 0, nothing changes ---
+SCAN 3 640 480 0 0 6 1
+# --- RED box, generation on, CL default (LMH off, CL on) ---
+CL 100 200 111 222 1
+SCAN 1 320 240 161 121 6 1
+FRAME 320 240 1 4096
+FRAME 320 240 2 997
+DUMP
+# --- FAST from RED (backup differs) ---
+SET m_nSemSEScanModeBackup 1
+SCAN 7 640 480 0 0 6 1
+FRAME 640 480 3 65536
+DUMP
+# --- FAST again with same backup: no refill ---
+SET m_nSemSEScanModeBackup 7
+SCAN 7 640 480 0 0 0 0
+FRAME 640 480 4 4096
+DUMP
+# --- SLOW1 from SLOW2, AC sync off then on; average clamp ---
+BOPT 0 0
+SET m_nSemSEScanModeBackup 11
+SCAN 9 640 480 0 0 99 1
+DUMP
+BOPT 0 1
+SET m_nSemSEScanModeBackup 11
+SCAN 9 640 480 0 0 1 1
+DUMP
+# --- SLOW2 from SLOW1 ---
+BOPT 0 0
+SET m_nSemSEScanModeBackup 9
+SCAN 11 640 480 0 0 1 0
+SET m_nSemSEScanModeBackup 7
+SCAN 11 640 480 0 0 1 1
+FRAME 640 480 5 8192
+DUMP
+# --- CL off ---
+CL 100 200 111 222 0
+SCAN 7 640 480 0 0 6 1
+# --- CL LMH mode: low/middle/high, invalid select, negative sub mode ---
+CL 100 200 111 222 1
+OPT 156 1
+OPT 157 0
+OPT 159 2
+SCAN 7 640 480 0 0 6 1
+OPT 157 1
+OPT 160 1
+SCAN 1 320 240 161 121 6 1
+OPT 157 2
+OPT 161 0
+SCAN 9 640 480 0 0 1 1
+OPT 161 -1
+SCAN 9 640 480 0 0 1 1
+OPT 157 5
+SCAN 9 640 480 0 0 1 1
+OPT 156 0
+# --- PHOTO1/2 ---
+SCAN 18 640 480 0 0 1 1
+FRAME 640 480 11 4096
+DUMP
+SCAN 19 640 480 0 0 1 0
+FRAME 640 480 12 3001
+DUMP
+# --- PHOTO3/4/5 ---
+SCAN 20 640 480 0 0 1 1
+FRAME 640 480 13 65536
+DUMP
+SCAN 21 1280 960 0 0 1 1
+FRAME 1280 960 14 65536
+DUMP
+SCAN 22 1280 960 0 0 1 0
+DUMP
+# --- PHOTO6, normal and full-size layer ---
+SET m_nNormalFullImageSizeFlag 0
+SCAN 23 2560 1920 0 0 1 1
+DUMP
+SET m_nNormalFullImageSizeFlag 1
+SCAN 23 2560 1920 0 0 1 1
+DUMP
+# --- back to live after photo ---
+SET m_nSemSEScanModeBackup 23
+SCAN 7 640 480 0 0 6 1
+FRAME 640 480 6 4096
+DUMP
+# --- SLOW12 restart ---
+SLOW12 9 640 480 0 0 1
+SLOW12 11 640 480 0 0 1
+SLOW12 7 640 480 0 0 1
