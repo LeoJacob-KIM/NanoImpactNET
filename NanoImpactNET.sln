@@ -1,0 +1,56 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C1B890B7-5CB7-4453-82E9-3D2633D96AC2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NanoImpact.Hardware", "src\NanoImpact.Hardware\NanoImpact.Hardware.csproj", "{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{BE4D18BF-50A0-4746-B603-445EEFC7AC73}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NanoImpact.Verify", "tools\NanoImpact.Verify\NanoImpact.Verify.csproj", "{97D4A46F-2CFB-4185-A63A-2EE8517D615C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Debug|x64.Build.0 = Debug|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Debug|x86.Build.0 = Debug|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Release|x64.ActiveCfg = Release|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Release|x64.Build.0 = Release|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Release|x86.ActiveCfg = Release|Any CPU
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF}.Release|x86.Build.0 = Release|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Debug|x64.Build.0 = Debug|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Debug|x86.Build.0 = Debug|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Release|x64.ActiveCfg = Release|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Release|x64.Build.0 = Release|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Release|x86.ActiveCfg = Release|Any CPU
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{AADB0637-2FC7-48E8-B8AD-25584C87D9CF} = {C1B890B7-5CB7-4453-82E9-3D2633D96AC2}
+		{97D4A46F-2CFB-4185-A63A-2EE8517D615C} = {BE4D18BF-50A0-4746-B603-445EEFC7AC73}
+	EndGlobalSection
+EndGlobal

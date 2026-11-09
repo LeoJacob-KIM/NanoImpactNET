@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>NanoImpact.Hardware</RootNamespace>
+    <AssemblyName>NanoImpact.Hardware</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NanoImpact.Verify" />
+  </ItemGroup>
+</Project>

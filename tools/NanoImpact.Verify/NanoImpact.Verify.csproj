@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 원본과 같은지 확인하는 콘솔 도구 (장비 없이 실행). 사용법은 Program.cs 맨 위 주석 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NanoImpact.Verify</RootNamespace>
+    <AssemblyName>NanoImpact.Verify</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NanoImpact.Hardware\NanoImpact.Hardware.csproj" />
+  </ItemGroup>
+</Project>

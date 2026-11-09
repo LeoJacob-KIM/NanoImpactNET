@@ -1,0 +1,16 @@
+<Project>
+  <!-- 모든 프로젝트 공통: .NET Framework 4.8, x86 고정 -->
+  <!-- x86 이유: 원본 NanoImpact2020cfe.exe·HW_AF.dll·TVideoGrabber가 x86이고,
+       USBINTEGRATEDDATA.INI 등 설정 파일이 x86 구조체 덤프라 배치를 그대로 맞춰야 한다. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Company>SFA</Company>
+    <Product>NanoImpact</Product>
+    <Copyright>SFA</Copyright>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+</Project>

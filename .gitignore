@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.pdb
+*.ilk
+*.obj
+*.exe.recipe
+tools/layout_probe/out/
+tools/golden/out/
