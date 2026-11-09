@@ -47,7 +47,7 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 | 4 | 영상 취득 | SE 읽기(장치 계층) → `OnSemSEScanImageData` 마커 해석 → 라이브·포토 4종 조립을 `SemScanImageProcessor`로 (원본 Dlg.cpp:13488-16148 번역 + 화면은 `IScanImageView`) | **완료, 원본 대조 일치** — 화면 그리기(`*UpdateControl`, 정보 띠·눈금), BSE 영상, 실제 스레드 연결은 7단계에서 |
 | 5 | Spellman C-FE HV | RS232 포트(`USB_RS232_Comm.cpp` → `UsbRS232Comm`, Win32 함수는 `ISerialCommApi`, 실제는 `SerialPort`), 빔 창 송신·감시 타이머(`CfeHVPowerControl`), 메인 화면 LF 조립·응답 해석·모니터 창 램핑 상태(`CfeHVPowerMonitor`), 화면은 `ICfeHVPowerView` | **완료, 원본 대조 일치** (장비 미시험) — 빔 창 버튼 처리(`OnBnClickedBeamControl*`)는 8단계, 실제 타이머·스레드 연결은 6~7단계 |
 | 6a | 장비 명령 묶음·실제 호스트 | `ModularAssistDevice.cpp` 전체 → `AssistDevice` (154개 번역 후 손질, 메인 화면 호출은 `IAssistOwner`), 공용 상태 `VACUUM_BEAM_ALIGN_FOCUS_DATA`, 실제 `DeviceHost`(UI 스레드 SendMessage/PostMessage, 실제 스레드) | **완료, 원본 대조 일치** (장비 미시험) |
-| 6b | 메인 화면 장치 처리기 | 메인의 `OnSemControl*Data`/`OnSemHWSetup*`/`OnSemControlStage*`(장치 → 화면, `UM_USB_SBR_*`), `OnSetUsbDevice*`/`OnGetUsbDevice*`(화면 → 장치) 약 6천 줄 → 서비스 + 패널 호출 인터페이스 | |
+| 6b | 메인 화면 장치 처리기 | 메인의 `OnSemControl*Data`/`OnSemHWSetup*`/`OnSemControlStage*`(장치 → 화면, `UM_USB_SBR_*`), `OnSetUsbDevice*`/`OnGetUsbDevice*`(화면 → 장치) 83개 약 6천 줄 → `MainDeviceService` (원본 메시지 맵 118항목), 패널 10개는 생성한 인터페이스, 범위 밖 화면 함수는 `IMainDeviceView` | **완료, 원본 대조 일치** (장비 미시험) — 패널 구현은 8단계, 화면 함수·메인 생성자 초기값은 7단계 |
 | 7 | WPF 셸 | 상단 바, 영상 4칸, 오른쪽 탭(Scan/Focus/Beam/Align/Vacuum/Option), Stage/CFE-HV, 하단 Detail, 캡처 목록 | |
 | 8 | 제어 패널 | Vacuum → Beam → CFE 모니터 → Focus·Align·Scan → Stage(+Load/Unload) → Detail | |
 | 9 | 자동 기능 | 자동 시작 상태 기계, Auto Focus/Contrast/Brightness/Gun Align (OpenCV → OpenCvSharp 또는 HW_AF.dll) | |
@@ -151,3 +151,18 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
   assist0의 차이 2건은 spot size 0 → CL 배열 [-1] (위 4절 CL1/CL2 항목과 같은 원본 버그).
 - `NanoImpact.Verify hostcheck <INI 폴더>` — 실제 호스트와 실제 장치 스레드: 다른 스레드의 SendMessage가 UI 스레드에서 실행·반환, Post 순서,
   스레드 예외 보고, 원본 시작 순서로 연 장치의 Scan Bridge 수신 스레드가 가짜 FTDI 응답을 읽어 메인 창으로 `5026`을 보냄, 원본 OnClose 순서로 종료.
+
+### 메인 화면 장치 처리기 (6b)
+
+- `src\NanoImpact.Hardware\Device\Main\MainDeviceService` — 원본 메인 화면 처리기 83개(`Main\Port\*.cs`, 번역 후 손질, 다시 생성하지 않음).
+  원본 멤버(`m_IntegratedData` 메인 화면 사본, `m_ClientPublicData`, `m_SemSEScanControlPublicData`, `m_VacuumBeamAlignFocusData` 등)를 같은 이름으로 들고,
+  `WindowProc`(원본 메시지 맵 118항목, `MainDeviceService.MessageMap.g.cs`)으로 장치 계층의 창 메시지를 받으며, `IAssistOwner`로 ModularAssistDevice와 연결된다.
+  생성자 초기값은 원본 메인 화면 생성자에서 이 처리기들이 쓰는 것만 (`m_bCLOnOffFlag = TRUE`, `m_strDistDecimalPlaces = "%6.2f"`).
+- 패널: `NanoImpact.CodeGen panels`가 처리기 본문의 `m_wndXxx.Method(...)` 호출과 패널 헤더 선언으로 만든 인터페이스 10개(`Main\Panels.g.cs`, 메서드 118개,
+  글자 컨트롤 2개) — 8단계 실제 패널이 구현한다. 원본 대조용 기록 클래스(`Verify\PanelRecorders.g.cs`, C++ `device_harness\panels.inc`)도 같이 생성.
+- 범위 밖 메인 화면 함수(정보 띠 갱신, 진공 상태 표시, 스캔 시작, 자동 기능 실행, 타이머 등 19개)는 `IMainDeviceView` — 7·9단계.
+- 처리기 지역 구조체 28종은 `NanoImpact.CodeGen structs`로 `Core\Native\ControlData.g.cs`에 생성 (`CopyFrom` = 원본 memcpy).
+- 원본 대조: `tools\device_harness`에 원본 처리기 5구간을 그대로 붙이고 메인 창(hWnd 1) 메시지를 원본 메시지 맵대로 처리기에 넘긴다 →
+  장비 응답(rx) → 처리기 → 패널, 패널 명령(assist) → 처리기 → 장비 쓰기가 끝에서 끝까지 비교된다.
+  main0/1/2 각 2,404~2,411 호출(메시지 118종 × 처리기가 비교하는 요청 번호·옵션·데이터값·상태값), main_auto 340 호출(자동 기능 결과 × 이전 스캔 모드),
+  기존 rx/assist/sweep 시나리오 모두 같음. 패널 메서드 118개와 컨트롤 2개가 모두 한 번 이상 불렸다.

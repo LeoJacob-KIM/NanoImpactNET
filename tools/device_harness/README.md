@@ -3,6 +3,8 @@
 원본 `USB_FT232H_Device.cpp`(장비 통신·제어, 21,627줄)를 **고치지 않고 그대로** 컴파일해서 시나리오를 돌리고,
 C# `SemDevice`(src\NanoImpact.Hardware\Device)에 같은 시나리오를 돌려 출력을 호출 단위로 비교한다.
 6a부터 원본 `ModularAssistDevice.cpp` 메서드(패널이 부르는 장비 명령 묶음)도 같이 붙여, `CALL A.이름(형식)`으로 C# `AssistDevice`와 비교한다.
+6b부터 원본 메인 화면 장치 처리기도 붙여, 메인 창(hWnd 1)으로 가는 메시지를 원본 메시지 맵대로 처리기에 넘긴다 (C# `MainDeviceService`).
+그래서 장비 응답 → 처리기 → 패널, 패널 명령 → 처리기 → 장비 쓰기가 끝에서 끝까지 비교된다.
 
 ## 구성
 
@@ -11,10 +13,11 @@ C# `SemDevice`(src\NanoImpact.Hardware\Device)에 같은 시나리오를 돌려 
 | `build.bat` | 원본 .cpp/.h를 `out\src`로 복사, 대체 헤더(`shim\`)와 함께 MSVC x86 빌드 → `out\harness.exe`, 가짜 `out\Ftd2xx.dll` |
 | `shim\stdAfx.h` | MFC 없이 컴파일하기 위한 최소 대체(CString, CFile, AfxBeginThread). `MessageBox/SendMessage/PostMessage/Sleep/GetTickCount`를 기록 함수로 돌린다 |
 | `fake_ftd2xx.cpp` | 원본이 `LoadLibrary("Ftd2xx.dll")`로 부르는 FT_* 18개. 쓰기·설정을 기록하고 `RX`로 넣은 바이트를 돌려준다 |
-| `harness.cpp` | 스크립트 실행기. 호출 표 `out\src\dispatch.inc`는 `NanoImpact.CodeGen dispatch`가 헤더에서 만든다 (450개 함수). `ModularAssistDevice.cpp` 10-3914행은 `assist_methods.inc`로 그대로 붙이고, 호출 표 `assist_dispatch.inc`(151개)는 `NanoImpact.CodeGen dispatch-class`가 만든다. 메인 화면 호출은 기록용 대체 |
+| `harness.cpp` | 스크립트 실행기. 호출 표 `out\src\dispatch.inc`는 `NanoImpact.CodeGen dispatch`가 헤더에서 만든다 (450개 함수). `ModularAssistDevice.cpp` 10-3914행은 `assist_methods.inc`로 그대로 붙이고, 호출 표 `assist_dispatch.inc`(151개)는 `NanoImpact.CodeGen dispatch-class`가 만든다. 메인 화면 장치 처리기(NanoImpact2020cfeDlg.cpp 5구간)는 `main_device*.inc`로 그대로 붙이고, 메시지 맵 `main_msgmap.inc`·선언 `main_protos.inc`·패널 기록 클래스 `panels.inc`(`NanoImpact.CodeGen panels`)·필드 목록 `fields`(`NanoImpact.CodeGen structs`)을 쓴다 |
 | `run.ps1` | 원본·C# 양쪽 실행(매번 `out\ini`에 원본 INI 복사본) → 호출 단위 비교 |
 | `make_sweep.ps1`, `make_rx.ps1` | 전수 시나리오(모든 함수 1회), 수신 처리기 시나리오(명령 44종 × 13가지) 생성 |
 | `make_assist.ps1` | `ModularAssistDevice` 전수 시나리오 (요청 구조체를 받는 함수는 본문이 비교하는 요청 번호마다 1회) |
+| `make_main.ps1` | 메인 창 메시지 전수 시나리오 (메시지 118종 × 처리기 본문이 비교하는 요청 번호·옵션·`nRequestData[0]`·상태값) |
 
 ## 출력 형식 (양쪽 같음)
 
@@ -24,9 +27,15 @@ C <포트> FT_<이름> ...   FT 설정 호출                MSG/POST <창> <메
 BOX <제목> | <내용>      SLEEP <ms>   THREAD         RET <반환값>
 S <오프셋> <바이트...>   INTEGRATED_COMMAND_STRUCT 중 바뀐 바이트 (R = 스캔 회전 보정 데이터)
 A <멤버>=<값>            ModularAssistDevice 멤버·VACUUM_BEAM_ALIGN_FOCUS_DATA 중 바뀐 것
-OWNER <메인 화면 함수> <wParam> [REQ id type option n=.. d=.. sz=..]   ModularAssistDevice가 메인 화면으로 넘긴 것
+           (6b부터 메인 화면 멤버, scan./vbaf. = SEM_SE_SCAN_CONTROL_PUBLIC_DATA·VACUUM_BEAM_ALIGN_FOCUS_DATA 필드)
+M / L <오프셋> <바이트...>   메인 화면의 INTEGRATED_COMMAND_STRUCT 사본 / CLIENT_PUBLIC_DATA 중 바뀐 바이트
+P <패널>.<메서드> <인자...>   패널 호출 (실수 %.17g, 공용 데이터 포인터는 FNV 해시)
+V <메인 화면 함수> <인자...>  처리기 범위 밖 메인 화면 함수 (정보 띠, 스캔 시작, 자동 기능 …)   TIMER SET/KILL <id> [ms]
 ```
 `CALL A.이름(형식)`의 요청 구조체 인자는 `id,type,option;n0,n1,..;d0,d1,..;글자` (빠진 칸은 0).
+
+6b 명령: `MAIN <msg> <wParam> NULL | INT n | INTEG | REQ 요청 | INFO cmd,state;n..;w..;dw..;d..;글자;비고` (= 메인 창으로 SendMessage),
+`CLIENTINI <파일>`(m_ClientPublicData 읽기), `AUTOBC n`(GetAutoBCRunFlag 반환값), `SETF scan|vbaf <필드> <값>`.
 
 ## 쓰는 법
 
@@ -52,6 +61,10 @@ powershell -File run.ps1 scripts\sweep1.txt
 | assist1 / assist2 / assist7 | 188 × 3 | 전부 | ModularAssistDevice 151개 함수 1회씩, 인자 1·2·7 (6a) |
 | assist0 | 188 | 186 | spot size 0 → 원본이 CL 배열 [-1]을 읽음 (C# 예외 2, sweep0와 같은 원본 버그) |
 | assist_modes | 369 | 369 | 진공 상태 0~100, 스캔 모드 0~15 × 캡처 켬/끔, CL L/M/H × 1/2/3, 축 이동 8축 × ± × 실행, Spellman 켬/끔 16조합 등 |
+| main1 / main2 / main0 | 2,404 · 2,411 · 2,411 | 전부 | 메인 창 메시지 118종 × 요청 번호·옵션·데이터값·상태값 (6b). main0은 원본 CL 배열 [-1] 읽기를 C#도 같은 바이트로 읽음 |
+| main_auto | 340 | 340 | 자동 기능 결과(8200) × 이전 스캔 모드 × 자동 시작 여부 |
+
+6b 이후 위 시나리오 출력에는 메인 화면 처리기의 패널·화면 호출이 함께 들어간다 (rx: 패널 97, assist1: 패널 294 등). 패널 메서드 118개·컨트롤 2개가 모두 한 번 이상 불린다.
 
 실제 스레드 연결은 `NanoImpact.Verify hostcheck <INI 폴더>`로 따로 확인한다 (doc\PortingPlan.md 6a).
 

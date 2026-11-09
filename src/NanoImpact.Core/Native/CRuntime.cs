@@ -133,6 +133,32 @@ namespace NanoImpact.Core.Native
             for (int i = 0; i < count; i++) dst[i] = src[i];
         }
 
+        /// <summary>memcpy(구조체 배열 필드, 지역 배열, 바이트 수)</summary>
+        public static unsafe void memcpy<T>(NativeArray<T> dst, T[] src, int byteCount) where T : unmanaged
+        {
+            int n = byteCount / sizeof(T);
+            for (int i = 0; i < n; i++) dst[i] = src[i];
+        }
+
+        /// <summary>memcmp(구조체 배열 필드, 지역 배열, 바이트 수) — 원본은 "다른가"(!= 0)로만 쓴다</summary>
+        public static unsafe int memcmp<T>(NativeArray<T> a, T[] b, int byteCount) where T : unmanaged, IComparable<T>
+        {
+            int n = byteCount / sizeof(T);
+            for (int i = 0; i < n; i++)
+            {
+                int c = a[i].CompareTo(b[i]);
+                if (c != 0) return c < 0 ? -1 : 1;
+            }
+            return 0;
+        }
+
+        /// <summary>memcpy(지역 배열, 구조체 배열 필드, 바이트 수)</summary>
+        public static unsafe void memcpy<T>(T[] dst, NativeArray<T> src, int byteCount) where T : unmanaged
+        {
+            int n = byteCount / sizeof(T);
+            for (int i = 0; i < n; i++) dst[i] = src[i];
+        }
+
         private static byte[] Bytes(ICharArray s, int n)
         {
             var b = new byte[n];

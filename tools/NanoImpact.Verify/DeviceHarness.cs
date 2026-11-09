@@ -23,9 +23,14 @@ namespace NanoImpact.Verify
         private readonly RecordingHost _host;
         private readonly SemDevice _dev;
         private readonly AssistDevice _assist;
-        private readonly VACUUM_BEAM_ALIGN_FOCUS_DATA _vbaf = new VACUUM_BEAM_ALIGN_FOCUS_DATA();
+        private readonly MainDeviceService _main;
+        private readonly PanelRecorders.RecMainView _view;
+        private readonly List<KeyValuePair<string, char>> _scanFields;
+        private readonly List<KeyValuePair<string, char>> _vbafFields;
         private byte[] _prevIntegrated;
         private byte[] _prevSRot;
+        private byte[] _prevMain;
+        private byte[] _prevClient;
         private List<string> _prevAssist = new List<string>();
 
         public DeviceHarness(TextWriter output)
@@ -34,12 +39,27 @@ namespace NanoImpact.Verify
             _ftdi = new FakeFtdi(output);
             _host = new RecordingHost(output);
             _dev = new SemDevice(_host, _ftdi);
-            // harness.cpp main과 같은 ModularAssistDevice 연결 (원본 OnInitDialog)
+            // harness.cpp main과 같은 연결 (원본 OnInitDialog): ModularAssistDevice ↔ 메인 화면 장치 처리기, 메인 창(hWnd 1) 메시지 → 처리기
             _assist = new AssistDevice(_dev, _host);
             _assist.SetOwner(1);
-            _assist.SetOwnerWindow(new RecordingOwner(output));
-            _assist.SetVacuumBeamAlignFocusPublicData(_vbaf);
+            _view = new PanelRecorders.RecMainView(output);
+            _main = new MainDeviceService(_dev, _assist, _view, PanelRecorders.Create(output), new SEM_SE_SCAN_CONTROL_PUBLIC_DATA(), 1);
+            _host.MainWindow = _main;
+            _scanFields = ReadFields(Path.Combine("src", "scan_fields.inc"));
+            _vbafFields = ReadFields(Path.Combine("src", "VACUUM_BEAM_ALIGN_FOCUS_DATA.fields.inc"));
             DiffAssist();
+        }
+
+        /// <summary>harness.cpp와 같은 필드 목록 (FIELD(형식, 이름) / FIELDA(형식, 이름, 개수)) — 개수는 C# 배열 길이로</summary>
+        private static List<KeyValuePair<string, char>> ReadFields(string path)
+        {
+            var list = new List<KeyValuePair<string, char>>();
+            foreach (string line in File.ReadLines(path))
+            {
+                System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(line, @"^FIELDA?\((\w), (\w+)");
+                if (m.Success) list.Add(new KeyValuePair<string, char>(m.Groups[2].Value, m.Groups[1].Value[0]));
+            }
+            return list;
         }
 
         public static int Run(string script)
@@ -96,6 +116,51 @@ namespace NanoImpact.Verify
                 case "RX" when tok.Length >= 3:
                     _ftdi.PushRx((int)ParseCInt(tok[1]), tok.Skip(2).Select(x => byte.Parse(x, NumberStyles.HexNumber)).ToArray());
                     break;
+                case "MAIN" when tok.Length >= 4:
+                {
+                    // harness.cpp MAIN: SendMessage(메인 창, msg, wParam, NULL | INT n | REQ 요청 | INFO 장치 데이터)
+                    _out.WriteLine("CALL MAIN " + string.Join(" ", tok.Skip(1)));
+                    _onCall("MAIN " + tok[1]);
+                    object l = null;
+                    string a = tok.Length > 4 ? tok[4] : "";
+                    if (tok[3] == "INT") l = unchecked((int)ParseCInt(a == "" ? "0" : a));
+                    else if (tok[3] == "INTEG") l = _dev.AfxGetIntegratedPointer(); // ModularAssistDevice.UsbDeviceConnect처럼
+                    else if (tok[3] == "REQ") l = ParseRequest(a);
+                    else if (tok[3] == "INFO") l = ParseInfo(a);
+                    int r;
+                    try
+                    {
+                        r = _host.SendMessage(1, unchecked((int)ParseCInt(tok[1])), unchecked((int)ParseCInt(tok[2])), l);
+                    }
+                    catch (Exception ex)
+                    {
+                        _out.WriteLine("EXCEPTION " + ex.GetType().Name + ": " + ex.Message);
+                        foreach (string fr in (ex.StackTrace ?? "").Split('\n').Where(x => x.Contains("MainDeviceService") || x.Contains("AssistDevice") || x.Contains("SemDevice")).Take(3)) _out.WriteLine("  at " + fr.Trim());
+                        DiffState();
+                        break;
+                    }
+                    _out.WriteLine("RET " + r);
+                    DiffState();
+                    break;
+                }
+                case "CLIENTINI" when tok.Length >= 2:
+                    if (File.Exists(tok[1])) _main.m_ClientPublicData.LoadFile(tok[1]);
+                    DiffState();
+                    break;
+                case "AUTOBC" when tok.Length >= 2:
+                    _view.AutoBCRun = (int)ParseCInt(tok[1]);
+                    break;
+                case "SETF" when tok.Length >= 4:
+                {
+                    // harness.cpp SETF scan|vbaf <필드> <값>: 정수·실수 필드만
+                    object obj = tok[1] == "scan" ? (object)_main.m_SemSEScanControlPublicData : _main.m_VacuumBeamAlignFocusData;
+                    FieldInfo fi = obj.GetType().GetField(tok[2]);
+                    if (fi != null && fi.FieldType == typeof(int)) fi.SetValue(obj, unchecked((int)ParseCInt(tok[3])));
+                    else if (fi != null && fi.FieldType == typeof(double)) fi.SetValue(obj, CStrtod(tok[3]));
+                    else _out.WriteLine("NOFIELD " + tok[2]);
+                    DiffState();
+                    break;
+                }
                 default:
                     _out.WriteLine("UNKNOWN " + tok[0]);
                     break;
@@ -210,27 +275,22 @@ namespace NanoImpact.Verify
                 string.Join(",", r.nRequestData.Take(ln)), string.Join(",", r.dRequestData.Take(ld).Select(x => CRuntime.Format("%.17g", x))), r.szData);
         }
 
-        /// <summary>ModularAssistDevice가 m_pOwnerWindow로 부르는 메인 화면 함수 (6b에서 포팅) — harness.cpp CNanoImpact2020cfeDlg와 같은 기록</summary>
-        private sealed class RecordingOwner : IAssistOwner
+        /// <summary>harness.cpp Args::Info와 같은 형식 "cmd,state;n0,..;w0,..;dw0,..;d0,..;text;remark" (빠진 칸은 0)</summary>
+        private static USB_DEVICE_DATA_INFO ParseInfo(string s)
         {
-            private readonly TextWriter _out;
-            public RecordingOwner(TextWriter output) { _out = output; }
-
-            public int OnSetUsbDeviceSEMControlDataToDeviceServer(int wParam, object lParam)
-            {
-                _out.WriteLine("OWNER OnSetUsbDeviceSEMControlDataToDeviceServer " + unchecked((uint)wParam) + FormatRequest((REQUEST_USB_DEVICE_DATA)lParam));
-                return 1;
-            }
-
-            public int OnSetUsbDeviceSEMControlDataToFlowControl(int wParam, object lParam)
-            {
-                _out.WriteLine("OWNER OnSetUsbDeviceSEMControlDataToFlowControl " + unchecked((uint)wParam) + FormatRequest((REQUEST_USB_DEVICE_DATA)lParam));
-                return 1;
-            }
-
-            public int OnSemControlIntegratedData(int wParam, object lParam) { _out.WriteLine("OWNER OnSemControlIntegratedData " + unchecked((uint)wParam) + " " + (lParam != null ? "P" : "0")); return 1; }
-            public int OnSemStageUsbControlData(int wParam, object lParam) { _out.WriteLine("OWNER OnSemStageUsbControlData " + unchecked((uint)wParam) + " " + (lParam != null ? "P" : "0")); return 1; }
-            public void SetWDSetupEnabledOLValue(int nCoarse) => _out.WriteLine("OWNER SetWDSetupEnabledOLValue " + nCoarse);
+            var r = new USB_DEVICE_DATA_INFO();
+            string[] part = s.Split(';');
+            string[] Items(string x) => x.Length == 0 ? new string[0] : x.Split(',');
+            string[] h = Items(part[0]);
+            if (h.Length > 0) r.nCommand = unchecked((int)ParseCInt(h[0]));
+            if (h.Length > 1) r.nState = unchecked((int)ParseCInt(h[1]));
+            if (part.Length > 1) { string[] x = Items(part[1]); for (int i = 0; i < x.Length && i < r.nData.Length; i++) r.nData[i] = unchecked((int)ParseCInt(x[i])); }
+            if (part.Length > 2) { string[] x = Items(part[2]); for (int i = 0; i < x.Length && i < r.wData.Length; i++) r.wData[i] = unchecked((ushort)ParseCInt(x[i])); }
+            if (part.Length > 3) { string[] x = Items(part[3]); for (int i = 0; i < x.Length && i < r.dwData.Length; i++) r.dwData[i] = unchecked((uint)ParseCInt(x[i])); }
+            if (part.Length > 4) { string[] x = Items(part[4]); for (int i = 0; i < x.Length && i < r.dData.Length; i++) r.dData[i] = CStrtod(x[i]); }
+            if (part.Length > 5) CRuntime.strcpy(r.szData, part[5].Length >= r.szData.Capacity ? part[5].Substring(0, r.szData.Capacity - 1) : part[5]);
+            if (part.Length > 6) CRuntime.strcpy(r.szRemark, part[6].Length >= r.szRemark.Capacity ? part[6].Substring(0, r.szRemark.Capacity - 1) : part[6]);
+            return r;
         }
 
         // ---- 상태 변화 (harness.cpp Diff와 같은 규칙: 4바이트 이내 간격은 한 줄로) ----
@@ -242,9 +302,10 @@ namespace NanoImpact.Verify
             DiffAssist();
         }
 
-        /// <summary>harness.cpp DiffAssist와 같은 순서·이름</summary>
+        /// <summary>harness.cpp DiffAssist와 같은 순서·이름·형식</summary>
         private void DiffAssist()
         {
+            MainDeviceService m = _main;
             var cur = new List<string>
             {
                 "g_assist.m_bSbrConnected=" + _assist.m_bSbrConnected,
@@ -253,14 +314,53 @@ namespace NanoImpact.Verify
                 "g_assist.m_bUsbConnected=" + _assist.m_bUsbConnected,
                 "g_assist.m_bSysInitilized=" + _assist.m_bSysInitilized,
                 "g_assist.m_nSeBseScanMode=" + _assist.m_nSeBseScanMode,
-                "g_vbaf.m_nChamberState=" + _vbaf.m_nChamberState,
-                "g_vbaf.m_nGunValveState=" + _vbaf.m_nGunValveState,
+                "g_main.m_bCLOnOffFlag=" + m.m_bCLOnOffFlag,
+                "g_main.m_bAutoStartConfigChengeFlag=" + m.m_bAutoStartConfigChengeFlag,
+                "g_main.m_bPhotoCalibrationFlag=" + m.m_bPhotoCalibrationFlag,
+                "g_main.m_pdlgMessageNotice != NULL=" + (m.m_pdlgMessageNotice != null ? 1 : 0),
+                "g_main.m_pSEScanImageDataThreadParams != NULL=" + (m.m_pSEScanImageDataThreadParams != null ? 1 : 0),
+                "g_main.m_pSEScanImageDataProcessThread != NULL=" + (m.m_pSEScanImageDataProcessThread != null ? 1 : 0),
+                "g_main.m_nSpotSizeValue=" + m.m_nSpotSizeValue,
+                "g_main.m_nWDx10Position=" + m.m_nWDx10Position,
+                "g_main.m_nDialogStartStep=" + m.m_nDialogStartStep,
+                "g_main.m_strDistDecimalPlaces=" + m.m_strDistDecimalPlaces,
             };
+            AddFields(cur, "scan.", m.m_SemSEScanControlPublicData, _scanFields);
+            AddFields(cur, "vbaf.", m.m_VacuumBeamAlignFocusData, _vbafFields);
             if (_prevAssist.Count != cur.Count) _prevAssist = cur.Select(_ => "").ToList();
             for (int i = 0; i < cur.Count; i++)
                 if (cur[i] != _prevAssist[i]) _out.WriteLine("A " + cur[i]);
             _prevAssist = cur;
+            Diff('M', m.m_IntegratedData.ToBytes(), ref _prevMain);
+            Diff('L', m.m_ClientPublicData.ToBytes(), ref _prevClient);
         }
+
+        /// <summary>harness.cpp AddFields: 필드 이름으로 값을 읽어 같은 형식으로</summary>
+        private static void AddFields(List<string> cur, string prefix, object obj, List<KeyValuePair<string, char>> fields)
+        {
+            foreach (KeyValuePair<string, char> f in fields)
+            {
+                object v = obj.GetType().GetField(f.Key).GetValue(obj);
+                if (v is CharBuffer cb)
+                {
+                    var sb = new StringBuilder();
+                    for (int i = 0; i < cb.Capacity && cb[i] != 0; i++)
+                    {
+                        byte c = cb[i];
+                        if (c < 0x20 || c >= 0x7F) sb.Append("\\x").Append(c.ToString("X2", CultureInfo.InvariantCulture));
+                        else sb.Append((char)c);
+                    }
+                    cur.Add(prefix + f.Key + "=" + sb);
+                }
+                else if (v is Array arr)
+                {
+                    for (int i = 0; i < arr.Length; i++) cur.Add(prefix + f.Key + "[" + i + "]=" + FieldValue(arr.GetValue(i)));
+                }
+                else cur.Add(prefix + f.Key + "=" + FieldValue(v));
+            }
+        }
+
+        private static string FieldValue(object v) => v is double d ? CRuntime.Format("%.17g", d) : Convert.ToString(v, CultureInfo.InvariantCulture);
 
         private void Diff(char tag, byte[] b, ref byte[] prev)
         {
@@ -413,7 +513,14 @@ namespace NanoImpact.Verify
                 return h;
             }
 
-            public int SendMessage(int hWnd, int msg, int wParam, object lParam) { Print("MSG", hWnd, msg, wParam, lParam); return 0; }
+            /// <summary>메인 창(hWnd 1) 메시지는 메인 화면 장치 처리기로 (harness.cpp HarnessSendMessage와 같이)</summary>
+            public MainDeviceService MainWindow { get; set; }
+
+            public int SendMessage(int hWnd, int msg, int wParam, object lParam)
+            {
+                Print("MSG", hWnd, msg, wParam, lParam);
+                return hWnd == 1 && MainWindow != null ? MainWindow.WindowProc(msg, wParam, lParam) : 0;
+            }
             public bool PostMessage(int hWnd, int msg, int wParam, object lParam) { Print("POST", hWnd, msg, wParam, lParam); return true; }
             public void Sleep(int milliseconds) => _out.WriteLine("SLEEP " + unchecked((uint)milliseconds));
             public uint GetTickCount() => Tick;

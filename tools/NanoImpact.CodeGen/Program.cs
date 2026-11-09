@@ -51,6 +51,18 @@ namespace NanoImpact.CodeGen
                     DispatchGen.RunClass(args[1], args[2], args[3], args[4]);
                     return 0;
                 }
+                if (args.Length >= 5 && args[0] == "structs")
+                {
+                    // NanoImpact.CodeGen structs <DefineStructCode.h> <출력.cs> <fields 폴더|-> 이름...
+                    StructGen.Run(args[1], args[2], args[3] == "-" ? null : args[3], args.Skip(4));
+                    return 0;
+                }
+                if (args.Length >= 7 && args[0] == "panels")
+                {
+                    // NanoImpact.CodeGen panels <원본 폴더> <원본.cpp> <줄 범위> <인터페이스.cs> <기록.cs> <panels.inc>
+                    PanelGen.Run(args[1], args[2], args[3], args[4], args[5], args[6]);
+                    return 0;
+                }
                 string header = args.Length > 0 ? args[0] : DefaultHeader;
                 string root = args.Length > 1 ? args[1] : FindRepoRoot();
                 Run(header, root);
