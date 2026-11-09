@@ -7,7 +7,7 @@
 
 | 파일 | 역할 |
 |---|---|
-| `build.bat` | `extract.ps1`로 원본 함수를 `out\src\*.inc`에 복사(CP949 그대로), `harness.cpp`와 MSVC x86 빌드(`/LARGEADDRESSAWARE`) |
+| `build.bat` | `extract.ps1`로 원본 함수를 `out\src\*.inc`에 복사(바이트 그대로, 원본에 BOM이 있으면 BOM 유지 — 원본 빌드처럼 UTF-8로 읽힌다), `harness.cpp`와 MSVC x86 빌드(`/LARGEADDRESSAWARE`) |
 | `harness.cpp` | 대체 대화상자(원본 멤버 이름·형식), 화면 객체 기록, 스크립트 실행 |
 | `scan_fields.inc` | `SEM_SE_SCAN_CONTROL_PUBLIC_DATA` 필드 154개 목록 — 원본·C# 하네스가 같은 순서로 상태를 찍는다 |
 | `run.ps1` | 원본과 `NanoImpact.Verify image`를 같은 스크립트로 돌려 블록(`> 명령` / `DATA`) 단위 비교 |

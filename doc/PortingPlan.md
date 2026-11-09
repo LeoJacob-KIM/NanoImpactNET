@@ -45,7 +45,7 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 | 2 | 상수·구조체·설정 파일 | `DefineStructCode.h` → C# 상수/구조체 자동 변환, MSVC x86 크기·오프셋 대조, INI 3개 읽기·쓰기 왕복 시험 | **완료** — 상수 2,971개 전부, 저장 구조체 3개 배치 MSVC와 동일, INI 왕복 동일 |
 | 3 | 장비 명령 계층 | `USB_FT232H_Device.cpp` 전체 → `SemDevice` (전역 변수 → 필드, `Afx*` 함수 → 같은 이름 메서드). 451개는 `NanoImpact.CodeGen translate`로 옮긴 뒤 손질, FT 계층 30개는 손으로 | **완료, 원본 대조 하네스와 일치** (장비 미시험, 스레드 본문은 실제 스레드로 미실행) |
 | 4 | 영상 취득 | SE 읽기(장치 계층) → `OnSemSEScanImageData` 마커 해석 → 라이브·포토 4종 조립을 `SemScanImageProcessor`로 (원본 Dlg.cpp:13488-16148 번역 + 화면은 `IScanImageView`) | **완료, 원본 대조 일치** — 화면 그리기(`*UpdateControl`, 정보 띠·눈금), BSE 영상, 실제 스레드 연결은 7단계에서 |
-| 5 | Spellman C-FE HV | `SerialPort`, 프레임·checksum(`0x200-sum`, `&0x7F|0x40`), LF 조립, 명령표 | |
+| 5 | Spellman C-FE HV | RS232 포트(`USB_RS232_Comm.cpp` → `UsbRS232Comm`, Win32 함수는 `ISerialCommApi`, 실제는 `SerialPort`), 빔 창 송신·감시 타이머(`CfeHVPowerControl`), 메인 화면 LF 조립·응답 해석·모니터 창 램핑 상태(`CfeHVPowerMonitor`), 화면은 `ICfeHVPowerView` | **완료, 원본 대조 일치** (장비 미시험) — 빔 창 버튼 처리(`OnBnClickedBeamControl*`)는 8단계, 실제 타이머·스레드 연결은 6~7단계 |
 | 6 | 장비 서비스 | `ModularAssistDevice` + 메인의 `OnSetUsbDevice*`/`SetSEM*` → `ISemDevice` 서비스, 상태 모델 | |
 | 7 | WPF 셸 | 상단 바, 영상 4칸, 오른쪽 탭(Scan/Focus/Beam/Align/Vacuum/Option), Stage/CFE-HV, 하단 Detail, 캡처 목록 | |
 | 8 | 제어 패널 | Vacuum → Beam → CFE 모니터 → Focus·Align·Scan → Stage(+Load/Unload) → Detail | |
@@ -72,6 +72,14 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 | `AfxScanBridgeVLCommand` | 수신한 밸브 번호·값으로 5칸 배열 밖(구조체 밖 힙)에 씀 | C#은 예외 (실제 밸브 번호 범위에서는 원본과 같음) |
 | `AfxFT232HPortSendAvrCommand(port, cmd)` | `;`가 없는 명령이면 버퍼 밖을 읽다 죽음 | C#은 예외 |
 | 종료 순서 | `AfxSEMSystemThreadClose` 뒤 `AfxIntegratedSetThreadAllStopFlag`를 부르면 해제된 스레드 인자 접근 | 원본 OnClose 순서를 지킨다 |
+| `ExecuteCfeHVPowerAllDataMonitoring` (Spellman 일반 감시) | 순번이 `>= 28`에서 0으로 돌아가 28번 갈래(10바퀴마다 전체 상태 `50`)에 닿지 않음 → `50`을 한 번도 보내지 않음 | **원본 그대로** — 보내야 하는지 확인 필요 |
+| `ExecuteCfeHVPowerHVProcessDataMonitoring` (HV 동작 중 감시) | 같은 이유로(`>= 17`) 17번 갈래(히터 램프율 `2A`)를 보내지 않음 | **원본 그대로** — 확인 필요 |
+| `CfeHVPowerCommand01Process` | `(BYTE)x & 0x02 == 1` 은 C 우선순위로 `x & (0x02 == 1)` → 오류 비트 0(빔 에너지)만 보고 추출기·억제기·히터는 늘 "OK" | **원본 그대로** (화면 표시만 영향) — 확인 필요 |
+| 빔 창 `m_pUsbRS232Comm` | 빔 창 초기화 때 메인 화면의 포트 포인터를 복사해 둠. 포트가 닫혀 받는 스레드가 클래스를 지운 뒤에도 감시 타이머가 지워진 객체로 보냄 | 고침 (늘 메인 화면의 현재 포트를 본다, 없으면 안 보냄) |
+| `CommThread` 넘침 계산 | 받는 버퍼가 넘칠 때 `nInSize = (m_nLength + nInSize) - 8192` (빈 칸이 아니라 넘친 양) → 버퍼 밖에 쓸 수 있음. 두 번째 `ReadFile`도 남은 칸이 아니라 `nSize`만큼 읽음 | 고침 (빈 칸만큼) — 동기 처리에서는 도달하지 않음 |
+| `OnCfeHVPowerUsbRS232ComPortReceiveData` | 4096바이트 넘게 쌓이면 `Receive`가 -1 → `szData[-1]`에 씀(그리고 쌓인 것이 영영 안 빠짐). LF 없는 조각이 4096바이트를 넘으면 줄 버퍼 뒤 멤버를 덮어씀 | 고침 (쓰지 않음 / 모아 둔 조각 버림) |
+| `CfeHVPowerRS232ReceiveDataProcess` | `:` 뒤 256바이트 넘게 LF가 없으면 지역 버퍼 밖에 씀 | 고침 (넘는 바이트 버림) |
+| `CfeHVPowerCommandDataAnalysis` `50` | ARG1 칸을 못 찾으면 `n1` 대신 `m`을 0으로 (n1은 이미 0이라 결과 같음) | 원본 그대로 |
 
 ## 5. 검증 도구
 
@@ -113,3 +121,17 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 - 포토 평균 버퍼 B(2560×1920×120 = 590MB, 원본은 x86에서 한 번에 new)는 1MB 쪽을 처음 쓸 때 할당하는 `PagedBuffer`.
 - 원본 대조: `tools\image_harness` (README 참고). live 767 / photo12 227 / photo345 137 / photo6 175 / overlap 61 블록 모두 같음.
   장치 쪽 SE 읽기는 `tools\device_harness` `se_read` 62 호출 같음.
+
+### Spellman C-FE HV RS232 (5단계)
+
+- `src\NanoImpact.Hardware\Spellman`
+  - `UsbRS232Comm` — 원본 `CUsbRS232Comm`·`CommThread`를 손으로. Win32 직렬 함수는 `ISerialCommApi`(실제: `SerialCommApi` = `System.IO.Ports.SerialPort`),
+    창 메시지·스레드는 `IDeviceHost`. 받는 스레드는 바이트를 쌓고 `UM_CFE_HV_POWER_CONTROL_RECEIVE_DATA`를 SendMessage, 포트가 닫히면 `..._PORT_CLOSE`.
+  - `CfeHVPowerControl` (원본 빔 창, `Port\CfeHVPowerControl.L06771.cs`) — 감시 타이머 2개(일반 100 ms 순번 28칸 / HV 200 ms 17칸),
+    `SendingCfeHVPower<코드>Command` 29개, 체크섬 `(0x200 - 합) & 0x7F | 0x40`, 목표값 한 번만 넣기.
+  - `CfeHVPowerMonitor` (원본 메인 화면, `Port\CfeHVPowerMonitor.L*.cs`) — 포트 열기/닫기, LF까지 모으기, `:CC 인자 CS\n` 응답 35종 해석,
+    모니터 창 램핑 상태(램핑 뒤 처음 목표 도달 → 포커스 디가우징).
+  - 화면 쪽은 `ICfeHVPowerView` (글자·램프·스핀·받은 줄 목록·타이머·디가우징).
+- 번역기: `NanoImpact2020cfeDlg.cpp`는 BOM 있는 UTF-8 파일에 CP949 주석과 UTF-8 주석이 섞여 있어 줄마다 판별해 읽는다.
+  C 런타임에 `char*` 산술(`CharPtr`), `memcmp`, `strncpy(char*, char*)`, UCRT `atof`의 16진 실수·inf·nan·넘침을 더했다.
+- 원본 대조: `tools\hv_harness` (README 참고). send 538 / rx 1854 / monitor 19 / ramp 16 / port 28 / smoke 11 블록 모두 같음.

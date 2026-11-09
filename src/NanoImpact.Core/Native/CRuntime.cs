@@ -44,6 +44,35 @@ namespace NanoImpact.Core.Native
             return dst;
         }
 
+        /// <summary>C strncpy: src의 NUL 전까지 최대 count 바이트를 복사하고 남은 칸은 0으로 채운다 (count 안에 NUL이 없으면 NUL을 붙이지 않는다)</summary>
+        public static ICharArray strncpy(ICharArray dst, ICharArray src, int count)
+        {
+            int i = 0;
+            for (; i < count && src[i] != 0; i++) dst[i] = src[i];
+            for (; i < count; i++) dst[i] = 0;
+            return dst;
+        }
+
+        /// <summary>C memcmp (바이트를 부호 없이 비교, 부호만 의미 있음)</summary>
+        public static int memcmp(ICharArray a, ICharArray b, int count)
+        {
+            for (int i = 0; i < count; i++)
+                if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
+            return 0;
+        }
+
+        /// <summary>memcmp(buf, "00", 2) — 문자열 상수는 ANSI 바이트 뒤에 NUL이 있는 배열</summary>
+        public static int memcmp(ICharArray a, string b, int count)
+        {
+            byte[] bb = Ansi.GetBytes(b ?? "");
+            for (int i = 0; i < count; i++)
+            {
+                byte y = i < bb.Length ? bb[i] : (byte)0;
+                if (a[i] != y) return a[i] < y ? -1 : 1;
+            }
+            return 0;
+        }
+
         public static ICharArray strcat(ICharArray dst, string src)
         {
             int n = strlen(dst);
@@ -144,27 +173,87 @@ namespace NanoImpact.Core.Native
         public static int atoi(ICharArray s) => atoi(ToStr(s));
         public static int _wtoi(string s) => atoi(s);
 
-        /// <summary>C atof: 앞 공백 뒤 가장 긴 실수 접두어.</summary>
+        /// <summary>
+        /// C atof (MSVC UCRT strtod): 앞 공백 뒤 가장 긴 실수 접두어. 10진, 16진 실수("0x10" = 16, "0x1.8p3" = 12), inf/infinity/nan,
+        /// 범위를 넘으면 ±무한대.
+        /// </summary>
         public static double atof(string s)
         {
             s = s ?? "";
             int i = 0;
             while (i < s.Length && IsCSpace(s[i])) i++;
             int start = i;
-            if (i < s.Length && (s[i] == '+' || s[i] == '-')) i++;
+            bool negative = false;
+            if (i < s.Length && (s[i] == '+' || s[i] == '-')) { negative = s[i] == '-'; i++; }
+            if (StartsWithNoCase(s, i, "inf")) return negative ? double.NegativeInfinity : double.PositiveInfinity;
+            if (StartsWithNoCase(s, i, "nan")) return double.NaN;
+            if (i + 1 < s.Length && s[i] == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X'))
+            {
+                double h = HexFloat(s, i + 2, out bool any);
+                if (any) return negative ? -h : h;
+                return negative ? -0.0 : 0.0; // "0x"만 있으면 "0"까지 읽는다
+            }
             int digits = 0;
-            while (i < s.Length && char.IsDigit(s[i])) { i++; digits++; }
-            if (i < s.Length && s[i] == '.') { i++; while (i < s.Length && char.IsDigit(s[i])) { i++; digits++; } }
+            while (i < s.Length && IsDigit09(s[i])) { i++; digits++; }
+            if (i < s.Length && s[i] == '.') { i++; while (i < s.Length && IsDigit09(s[i])) { i++; digits++; } }
             if (digits == 0) return 0.0;
             int end = i;
             if (i < s.Length && (s[i] == 'e' || s[i] == 'E'))
             {
                 int j = i + 1;
                 if (j < s.Length && (s[j] == '+' || s[j] == '-')) j++;
-                if (j < s.Length && char.IsDigit(s[j])) { while (j < s.Length && char.IsDigit(s[j])) j++; end = j; }
+                if (j < s.Length && IsDigit09(s[j])) { while (j < s.Length && IsDigit09(s[j])) j++; end = j; }
             }
-            return double.Parse(s.Substring(start, end - start), NumberStyles.Float, CultureInfo.InvariantCulture);
+            try
+            {
+                return double.Parse(s.Substring(start, end - start), NumberStyles.Float, CultureInfo.InvariantCulture);
+            }
+            catch (OverflowException)
+            {
+                return negative ? double.NegativeInfinity : double.PositiveInfinity; // .NET Framework은 넘치면 예외, C는 HUGE_VAL
+            }
         }
+
+        private static bool IsDigit09(char c) => c >= '0' && c <= '9';
+
+        private static bool StartsWithNoCase(string s, int i, string word) =>
+            i + word.Length <= s.Length && string.Compare(s, i, word, 0, word.Length, StringComparison.OrdinalIgnoreCase) == 0;
+
+        /// <summary>16진 실수 본문 (0x 뒤): 16진 숫자, '.', 16진 소수, p[부호]10진 지수</summary>
+        private static double HexFloat(string s, int i, out bool any)
+        {
+            ulong mant = 0;
+            int exp2 = 0;
+            any = false;
+            bool dot = false;
+            for (; i < s.Length; i++)
+            {
+                int d = HexDigit(s[i]);
+                if (d < 0)
+                {
+                    if (s[i] == '.' && !dot) { dot = true; continue; }
+                    break;
+                }
+                any = true;
+                if (mant < (1UL << 60)) { mant = mant * 16 + (ulong)d; if (dot) exp2 -= 4; }
+                else if (!dot) exp2 += 4; // 유효 자릿수를 넘는 정수 자리
+            }
+            if (!any) return 0.0;
+            if (i < s.Length && (s[i] == 'p' || s[i] == 'P'))
+            {
+                int j = i + 1, sign = 1, e = 0;
+                if (j < s.Length && (s[j] == '+' || s[j] == '-')) { if (s[j] == '-') sign = -1; j++; }
+                if (j < s.Length && IsDigit09(s[j]))
+                {
+                    while (j < s.Length && IsDigit09(s[j])) { if (e < 100000) e = e * 10 + (s[j] - '0'); j++; }
+                    exp2 += sign * e;
+                }
+            }
+            return mant * Math.Pow(2, exp2);
+        }
+
+        private static int HexDigit(char c) =>
+            c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
 
         public static double atof(ICharArray s) => atof(ToStr(s));
         public static double _wtof(string s) => atof(s);

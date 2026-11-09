@@ -73,7 +73,7 @@ namespace NanoImpact.CodeGen
             string ns = "NanoImpact.Hardware.Device")
         {
             Encoding cp949 = Encoding.GetEncoding(949);
-            string[] lines = File.ReadAllText(cppPath, cp949).Replace("\r\n", "\n").Split('\n');
+            string[] lines = ReadMixedLines(cppPath, cp949);
             // 기본 인자는 헤더와 .cpp 앞쪽의 전방 선언 양쪽에 있다
             Dictionary<string, List<string>> defaults = ReadDefaults(File.ReadAllText(hPath, cp949) + "\n" + string.Join("\n", lines));
             List<Func> all = Extract(lines);
@@ -110,6 +110,30 @@ namespace NanoImpact.CodeGen
                 File.WriteAllText(file, sb.ToString(), new UTF8Encoding(true));
             }
             Console.WriteLine("translate: 함수 {0}개 → 파일 {1}개 ({2})", funcs.Count, groups.Count, outDir);
+        }
+
+        /// <summary>
+        /// 원본 .cpp를 줄 단위로 읽는다. 대부분 CP949지만 NanoImpact2020cfeDlg.cpp는 나중에 고친 구간의 주석이 UTF-8이라,
+        /// UTF-8로 깨짐 없이 읽히는 비ASCII 줄은 UTF-8로, 나머지는 CP949로 읽는다.
+        /// </summary>
+        private static string[] ReadMixedLines(string path, Encoding cp949)
+        {
+            var utf8 = new UTF8Encoding(false, true);
+            byte[] all = File.ReadAllBytes(path);
+            var lines = new List<string>();
+            int start = 0;
+            for (int i = 0; i <= all.Length; i++)
+            {
+                if (i < all.Length && all[i] != (byte)'\n') continue;
+                int end = i > start && all[i - 1] == (byte)'\r' ? i - 1 : i;
+                var seg = new ArraySegment<byte>(all, start, end - start);
+                string text;
+                try { text = seg.Any(b => b >= 0x80) ? utf8.GetString(seg.Array, seg.Offset, seg.Count) : cp949.GetString(seg.Array, seg.Offset, seg.Count); }
+                catch (DecoderFallbackException) { text = cp949.GetString(seg.Array, seg.Offset, seg.Count); }
+                lines.Add(text);
+                start = i + 1;
+            }
+            return lines.ToArray();
         }
 
         // ---- 함수 떼어 내기 ----

@@ -1,0 +1,18 @@
+# Beam voltage target replies (09) drive the ramping state of the monitor dialog: after ramping up/down,
+# the first "on target" reply starts focus degaussing (ModularCfeHVPowerMonitorDlg::SetBeamVoltageOnTarget).
+# Target values are put in the beam dialog edit boxes only once (m_bSet*TargetValueFlag).
+INIT
+OPEN 2
+RX :09E5 15000.0 4A\n
+RX :09C3 15000.0 4A\n:09C3 12000.0 4A\n
+RX :09E5 15000.0 4A\n
+RX :09E5 15000.0 4A\n
+RX :09A1 9000.0 4A\n:09E5 9000.0 4A\n
+RX :0960 0.0 4A\n:09E5 0.0 4A\n
+RX :09C3 100.0 4A\n:0900 100.0 4A\n:09E5 100.0 4A\n
+RX :09C3 100.0 4A\n:0945 100.0 4A\n:09E5 100.0 4A\n
+RX :09A1 7.5 4A\n:09C3 7.5 4A\n:09E5 7.5 4A\n:09E5 7.5 4A\n
+RX :1501 5000.0 4A\n:1502 6000.0 4A\n:1F01 300.0 4A\n:1F01 400.0 4A\n:2901 2200.0 4A\n:2901 2300.0 4A\n:1C0123.4 4A\n:1C0456.7 4A\n
+RX :0845 15000.0 4A\n:08C3 15000.0 4A\n:08A1 15000.0 4A\n:0836 15000.0 4A\n:0800 15000.0 4A\n
+RX :1445 5000.0 4A\n:14C3 5000.0 4A\n:1E45 300.0 4A\n:2845 2200.0 4A\n:2836 2200.0 4A\n
+RUN

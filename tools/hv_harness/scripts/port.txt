@@ -1,0 +1,28 @@
+# COM port open failure, close from the main dialog, firmware version buttons, sending without a port
+SEND 02
+FW 0
+FAILOPEN
+OPEN 11
+SEND 02
+RUN
+OPEN 12
+FW 0
+FW 1
+RX :050 V0.01 03/06/15 4A\n:051 V1.02 04/07/16 4A\n
+RUN
+OPEN 13
+CHECK 1
+RX :0145 3 4F\n:01
+CLOSE
+RUN
+OPEN 14
+RX :0204 1
+RX  4F\n
+RUN
+OPEN 15
+RX partial line without LF
+RUN
+OPEN 16
+RX \n
+RX :0099 1 4F\n
+RUN

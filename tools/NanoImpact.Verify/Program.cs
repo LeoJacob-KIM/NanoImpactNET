@@ -2,6 +2,9 @@
 //   NanoImpact.Verify golden <vectors.txt>   → golden.cpp와 같은 형식으로 출력 (두 출력을 diff)
 //   NanoImpact.Verify layout                 → 저장 구조체 배치 (tools\layout_probe 출력과 diff)
 //   NanoImpact.Verify ini <원본 INI 폴더>     → INI 3개 왕복·필드 쓰기 검사
+//   NanoImpact.Verify device <script>        → tools\device_harness와 같은 출력 (장비 명령 계층)
+//   NanoImpact.Verify image <script> <inc>   → tools\image_harness와 같은 출력 (SE 영상 조립)
+//   NanoImpact.Verify hv <script>            → tools\hv_harness와 같은 출력 (Spellman C-FE HV RS232)
 using System;
 using System.Globalization;
 using System.IO;
@@ -22,6 +25,7 @@ namespace NanoImpact.Verify
                 if (args.Length >= 2 && args[0] == "ini") return RecordChecks.CheckIni(args[1]);
                 if (args.Length >= 2 && args[0] == "device") return DeviceHarness.Run(args[1]);
                 if (args.Length >= 3 && args[0] == "image") return ImageHarness.Run(args[1], args[2]);
+                if (args.Length >= 2 && args[0] == "hv") return HvHarness.Run(args[1]);
             }
             catch (Exception ex)
             {

@@ -1,0 +1,24 @@
+# Monitoring timers of the beam dialog (ModularBeamControlDlg OnTimer): normal mode 100 ms all items, HV mode 200 ms main items
+# before the dialog init / without a port: SetCfeHVPowerMonitoringTimerExecute returns early
+MODE 0
+OPEN 4
+MODE 0
+INIT
+START
+# same mode again: no restart
+MODE 0
+# 28 ticks = one round; 12 rounds so the "every 10th round" command 50 fires twice
+TIMER 2002 340
+# HV mode during scanning
+MODE 1
+TIMER 2003 40
+# stray tick of the other timer is still handled by its branch
+TIMER 2002 3
+MODE 0
+TIMER 2002 30
+MODE 1
+MODE 1
+TIMER 2003 5
+TIMER 9999 2
+CLOSE
+RUN

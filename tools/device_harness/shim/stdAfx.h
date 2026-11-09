@@ -28,19 +28,48 @@ DWORD WINAPI HarnessGetTickCount(void);
 #define Sleep HarnessSleep
 #define GetTickCount HarnessGetTickCount
 
-// ---- MFC types used by USB_FT232H_Device.cpp ----
+// ---- MFC types used by the original sources ----
+// Like MFC's CString the object is a single pointer to the characters, so the original code can pass a CString
+// straight to a "%s" varargs Format (strText.Format(_T("%s"), (CString)pszData)).
 class CString
 {
-    std::basic_string<TCHAR> s;
+    TCHAR* p;
+    void Set(const TCHAR* s)
+    {
+        size_t n = s ? _tcslen(s) : 0;
+        TCHAR* q = new TCHAR[n + 1];
+        if (n) memcpy(q, s, n * sizeof(TCHAR));
+        q[n] = 0;
+        delete[] p;
+        p = q;
+    }
 public:
-    CString() {}
-    CString(const TCHAR* p) : s(p ? p : _T("")) {}
-    CString& operator=(const TCHAR* p) { s = p ? p : _T(""); return *this; }
-    CString operator+(const CString& o) const { CString r; r.s = s + o.s; return r; }
-    CString operator+(const TCHAR* p) const { CString r; r.s = s + (p ? p : _T("")); return r; }
-    friend CString operator+(const TCHAR* p, const CString& o) { CString r; r.s = std::basic_string<TCHAR>(p ? p : _T("")) + o.s; return r; }
-    operator LPCTSTR() const { return s.c_str(); }
-    int GetLength() const { return (int)s.size(); }
+    CString() : p(NULL) { Set(NULL); }
+    CString(const TCHAR* s) : p(NULL) { Set(s); }
+#ifdef UNICODE
+    // MFC converts char* with the ANSI code page
+    CString(const char* s) : p(NULL)
+    {
+        int n = s ? MultiByteToWideChar(CP_ACP, 0, s, -1, NULL, 0) : 0;
+        if (n <= 1) { Set(NULL); return; }
+        wchar_t* w = new wchar_t[n];
+        MultiByteToWideChar(CP_ACP, 0, s, -1, w, n);
+        Set(w);
+        delete[] w;
+    }
+    bool operator==(const char* s) const { return *this == CString(s); }
+#endif
+    CString(const CString& o) : p(NULL) { Set(o.p); }
+    ~CString() { delete[] p; }
+    CString& operator=(const CString& o) { if (this != &o) Set(o.p); return *this; }
+    CString& operator=(const TCHAR* s) { Set(s); return *this; }
+    bool operator==(const TCHAR* s) const { return _tcscmp(p, s ? s : _T("")) == 0; }
+    bool operator==(const CString& o) const { return _tcscmp(p, o.p) == 0; }
+    CString operator+(const CString& o) const { std::basic_string<TCHAR> r(p); r += o.p; return CString(r.c_str()); }
+    CString operator+(const TCHAR* s) const { std::basic_string<TCHAR> r(p); r += s ? s : _T(""); return CString(r.c_str()); }
+    friend CString operator+(const TCHAR* s, const CString& o) { std::basic_string<TCHAR> r(s ? s : _T("")); r += o.p; return CString(r.c_str()); }
+    operator LPCTSTR() const { return p; }
+    int GetLength() const { return (int)_tcslen(p); }
     void Format(LPCTSTR fmt, ...)
     {
         TCHAR buf[4096];
@@ -48,7 +77,7 @@ public:
         va_start(ap, fmt);
         _vsntprintf_s(buf, _countof(buf), _TRUNCATE, fmt, ap);
         va_end(ap);
-        s = buf;
+        Set(buf);
     }
 };
 

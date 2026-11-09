@@ -12,3 +12,4 @@ tools/golden/out/
 tools/device_harness/out/
 *.out_of_range.txt
 tools/image_harness/out/
+tools/hv_harness/out/
