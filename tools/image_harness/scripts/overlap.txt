@@ -1,0 +1,23 @@
+INI ..\..\device_harness\out\ini\USBINTEGRATEDDATA.INI
+TICK 1000
+SET m_nSaveScanMode 7
+# --- scan start like SemScanModeSelectAndScanStart: mode 20 1280x960 avg 1 ---
+SET m_nSEAutoBrightContrastCount 0
+SET m_nSEFrameCount 0
+SET m_nSEAverageNumber 1
+SET m_nSEAverageCount 0
+SET m_nSEAverageIndex 0
+SET m_nSEBitmapPixelWidth 1280
+SET m_nSEBitmapPixelHeight 960
+SET m_bSEImageCaptureStart 1
+SET m_nSemSEScanModeValue 20
+SET m_nPhotoScanMode 20
+SET m_nSEDrawXPositionB 0
+SET m_nSEDrawYPositionB 0
+SET m_nSEBitmapXOffsetB 0
+SET m_nSEBitmapYOffsetB 0
+SET m_bPhotoScanCompleted 0
+PHOTO 1280 960
+FRAME 1280 960 41 65536
+FRAME 1280 960 42 65536
+DUMP

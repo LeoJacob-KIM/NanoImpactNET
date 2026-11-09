@@ -21,6 +21,7 @@ namespace NanoImpact.Verify
                 if (args.Length >= 1 && args[0] == "layout") return RecordChecks.PrintLayout();
                 if (args.Length >= 2 && args[0] == "ini") return RecordChecks.CheckIni(args[1]);
                 if (args.Length >= 2 && args[0] == "device") return DeviceHarness.Run(args[1]);
+                if (args.Length >= 3 && args[0] == "image") return ImageHarness.Run(args[1], args[2]);
             }
             catch (Exception ex)
             {

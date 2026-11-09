@@ -65,6 +65,16 @@ namespace NanoImpact.Verify
                     _onCall(tok[1]);
                     Call(tok[1], tok.Skip(2).ToArray());
                     break;
+                case "SEREAD":
+                    // SE 영상 읽기 스레드 본문 1회 (인자가 구조체라 호출 표에 없다)
+                    // AfxThreadSEImageDataProcessing의 WAIT_OBJECT_0 한 바퀴처럼: 수신 허용 플래그를 먼저 복사 (원본 16810행)
+                    _out.WriteLine("CALL SEREAD");
+                    _onCall("SEREAD");
+                    if (_dev.SEImageDataThreadParamsForTest != null && _dev.IntegratedForTest != null)
+                        _dev.SEImageDataThreadParamsForTest.bScanDataReceive = _dev.IntegratedForTest.bScanDataReceive;
+                    _out.WriteLine("RET " + _dev.AfxSEScanDataImageProcess(_dev.SEImageDataThreadParamsForTest));
+                    DiffState();
+                    break;
                 case "PATH" when tok.Length >= 2:
                     _dev.AfxSetDeviceServerPath(tok[1]);
                     break;
@@ -290,8 +300,21 @@ namespace NanoImpact.Verify
                 string l;
                 if (lParam == null) l = "0";
                 else if (lParam is int v) l = unchecked((uint)v) < 0x10000 ? v.ToString(CultureInfo.InvariantCulture) : "P";
+                else if (lParam is byte[] buf && IsImageDataMessage(msg)) l = "P " + Fnv(buf, wParam).ToString("X16", CultureInfo.InvariantCulture);
                 else l = "P";
                 _out.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0} {1} {2} {3} {4}", tag, hWnd, unchecked((uint)msg), unchecked((uint)wParam), l));
+            }
+
+            private static bool IsImageDataMessage(int msg) =>
+                msg == NanoImpact.Core.Def.UM_SEM_SE_SCAN_IMAGE_DATA || msg == NanoImpact.Core.Def.UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_FOCUS ||
+                msg == NanoImpact.Core.Def.UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_CONTRAST || msg == NanoImpact.Core.Def.UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_BRIGHTNESS ||
+                msg == NanoImpact.Core.Def.UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_CONT_BRIG || msg == NanoImpact.Core.Def.UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_GUN_ALIGN;
+
+            private static ulong Fnv(byte[] b, int n)
+            {
+                ulong h = 1469598103934665603UL;
+                for (int i = 0; i < n && i < b.Length; i++) { h ^= b[i]; h *= 1099511628211UL; }
+                return h;
             }
 
             public int SendMessage(int hWnd, int msg, int wParam, object lParam) { Print("MSG", hWnd, msg, wParam, lParam); return 0; }

@@ -41,6 +41,15 @@ public:
     friend CString operator+(const TCHAR* p, const CString& o) { CString r; r.s = std::basic_string<TCHAR>(p ? p : _T("")) + o.s; return r; }
     operator LPCTSTR() const { return s.c_str(); }
     int GetLength() const { return (int)s.size(); }
+    void Format(LPCTSTR fmt, ...)
+    {
+        TCHAR buf[4096];
+        va_list ap;
+        va_start(ap, fmt);
+        _vsntprintf_s(buf, _countof(buf), _TRUNCATE, fmt, ap);
+        va_end(ap);
+        s = buf;
+    }
 };
 
 class CFile

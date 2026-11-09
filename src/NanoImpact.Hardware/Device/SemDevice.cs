@@ -64,6 +64,7 @@ namespace NanoImpact.Hardware.Device
         // ---- 원본 대조 시험용 (원본 AfxGetIntegratedPointer / AfxGetScanRotationCalibrationDataPointer 자리) ----
         internal IntegratedCommandStruct IntegratedForTest => m_pIntegrated;
         internal ScanRotationCalibrationData ScanRotCaliForTest => m_pScanRotCaliData;
+        internal SEIMAGEDATATHREADPARAMS SEImageDataThreadParamsForTest => m_pSEImageDataThreadParams;
 
         /// <summary>Scan Bridge (Sbr) Command List (DefineStructCode.h:2760, 위치 = SBR_CMD_*)</summary>
         private static readonly string[] m_szSbrCommandList =

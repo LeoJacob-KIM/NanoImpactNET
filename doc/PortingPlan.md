@@ -44,7 +44,7 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 | 1 | 장비 통신 하위 계층 | ftd2xx P/Invoke, `Ft232hPort`(열기 순서·송신 3종), Scan Bridge 수신 파서·수신 스레드 | **완료, 기준 구현과 일치** (장비 미시험) |
 | 2 | 상수·구조체·설정 파일 | `DefineStructCode.h` → C# 상수/구조체 자동 변환, MSVC x86 크기·오프셋 대조, INI 3개 읽기·쓰기 왕복 시험 | **완료** — 상수 2,971개 전부, 저장 구조체 3개 배치 MSVC와 동일, INI 왕복 동일 |
 | 3 | 장비 명령 계층 | `USB_FT232H_Device.cpp` 전체 → `SemDevice` (전역 변수 → 필드, `Afx*` 함수 → 같은 이름 메서드). 451개는 `NanoImpact.CodeGen translate`로 옮긴 뒤 손질, FT 계층 30개는 손으로 | **완료, 원본 대조 하네스와 일치** (장비 미시험, 스레드 본문은 실제 스레드로 미실행) |
-| 4 | 영상 취득 | SE/BSE 읽기 스레드 → `OnSemSEScanImageData`의 마커 해석(0xFF 프레임 시작, AB/AC, 0xFE/0xFD/0xFC) → 스캔 모드별(RED/FAST/SLOW/PHOTO1~6) 영상 조립 | |
+| 4 | 영상 취득 | SE 읽기(장치 계층) → `OnSemSEScanImageData` 마커 해석 → 라이브·포토 4종 조립을 `SemScanImageProcessor`로 (원본 Dlg.cpp:13488-16148 번역 + 화면은 `IScanImageView`) | **완료, 원본 대조 일치** — 화면 그리기(`*UpdateControl`, 정보 띠·눈금), BSE 영상, 실제 스레드 연결은 7단계에서 |
 | 5 | Spellman C-FE HV | `SerialPort`, 프레임·checksum(`0x200-sum`, `&0x7F|0x40`), LF 조립, 명령표 | |
 | 6 | 장비 서비스 | `ModularAssistDevice` + 메인의 `OnSetUsbDevice*`/`SetSEM*` → `ISemDevice` 서비스, 상태 모델 | |
 | 7 | WPF 셸 | 상단 바, 영상 4칸, 오른쪽 탭(Scan/Focus/Beam/Align/Vacuum/Option), Stage/CFE-HV, 하단 Detail, 캡처 목록 | |
@@ -104,3 +104,12 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
   장비 쓰기 바이트·FT 설정·창 메시지·대화상자·Sleep·공용 데이터 변화를 호출 단위로 비교.
 
 2026-11-09 결과: 시작 16 / 전수 464×3 / 수신 588 호출 모두 같음. 다른 것은 원본이 잘못된 인덱스로 배열 밖을 읽고 쓰는 경우뿐(위 4절).
+
+### 영상 조립 (4단계)
+
+- `src\NanoImpact.Hardware\Imaging\SemScanImageProcessor` — 원본 메인 화면 멤버를 같은 이름의 필드로 두고 6개 처리기를 번역(Imaging\Port, 다시 생성하지 않음).
+  화면 쪽(정보 글자, 스캔 버튼, 비트맵, 히스토그램, 화면 갱신)은 `IScanImageView` 하나로 모았다. 상태 구조체는 `Core\Native\ScanControlPublicData.cs`.
+- 원본은 같은 메모리를 `BYTE*`와 `RGBQUAD*`로 겹쳐 썼다(`m_p2ndBitmapBits` / `m_p2ndImageRgb`) → C#은 `RGBQUAD[]` 하나를 같이 가리킨다.
+- 포토 평균 버퍼 B(2560×1920×120 = 590MB, 원본은 x86에서 한 번에 new)는 1MB 쪽을 처음 쓸 때 할당하는 `PagedBuffer`.
+- 원본 대조: `tools\image_harness` (README 참고). live 767 / photo12 227 / photo345 137 / photo6 175 / overlap 61 블록 모두 같음.
+  장치 쪽 SE 읽기는 `tools\device_harness` `se_read` 62 호출 같음.

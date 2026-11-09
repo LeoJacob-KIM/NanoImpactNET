@@ -10,6 +10,7 @@
 //   TICK <n>               value returned by GetTickCount()
 //   BOXRET <n>             value returned by MessageBox()
 //   RX <port> <hex...>     queue bytes that the fake FT232H port <port> will return on FT_Read
+//   SEREAD                 AfxSEScanDataImageProcess(m_pSEImageDataThreadParams) (SE image read thread body)
 #include "stdAfx.h"
 #include "DefineStructCode.h"
 #include "USB_FT232H_Device.h"
@@ -52,10 +53,26 @@ int WINAPI HarnessMessageBox(HWND, LPCTSTR text, LPCTSTR caption, UINT type)
     return g_boxRet;
 }
 
+static unsigned long long Fnv(const void* p, size_t n)
+{
+    const unsigned char* b = (const unsigned char*)p;
+    unsigned long long h = 1469598103934665603ULL;
+    for (size_t i = 0; i < n; i++) { h ^= b[i]; h *= 1099511628211ULL; }
+    return h;
+}
+
+static bool IsImageDataMessage(UINT msg)
+{
+    return msg == UM_SEM_SE_SCAN_IMAGE_DATA || msg == UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_FOCUS || msg == UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_CONTRAST ||
+           msg == UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_BRIGHTNESS || msg == UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_CONT_BRIG || msg == UM_SEM_SE_SCAN_IMAGE_DATA_AUTO_GUN_ALIGN;
+}
+
 static void PrintMessage(const char* tag, HWND h, UINT msg, WPARAM w, LPARAM l)
 {
-    // lParam is often a pointer to a stack struct: print only whether it is a pointer
+    // lParam is often a pointer to a stack struct: print only whether it is a pointer.
+    // SE image data messages carry (size, buffer): print a hash of the buffer too.
     if ((ULONG_PTR)l < 0x10000) fprintf(g_out, "%s %d %u %u %d\n", tag, (int)(INT_PTR)h, msg, (unsigned)w, (int)l);
+    else if (IsImageDataMessage(msg)) fprintf(g_out, "%s %d %u %u P %016llX\n", tag, (int)(INT_PTR)h, msg, (unsigned)w, Fnv((const void*)l, (size_t)w));
     else fprintf(g_out, "%s %d %u %u P\n", tag, (int)(INT_PTR)h, msg, (unsigned)w);
 }
 
@@ -159,6 +176,15 @@ int main(int argc, char** argv)
             a.v.assign(tok.begin() + 2, tok.end());
             std::string r = it->second->fn(a);
             if (!r.empty()) fprintf(g_out, "RET %s\n", r.c_str());
+            DiffState();
+        }
+        else if (cmd == "SEREAD")
+        {
+            // one pass of the SE image read thread body (its parameter is a struct pointer, so it is not in dispatch.inc)
+            // like one WAIT_OBJECT_0 pass of AfxThreadSEImageDataProcessing (USB_FT232H_Device.cpp:16810): copy the receive flag first
+            fprintf(g_out, "CALL SEREAD\n");
+            if (m_pSEImageDataThreadParams && AfxGetIntegratedPointer()) m_pSEImageDataThreadParams->bScanDataReceive = AfxGetIntegratedPointer()->bScanDataReceive;
+            fprintf(g_out, "RET %d\n", AfxSEScanDataImageProcess(m_pSEImageDataThreadParams));
             DiffState();
         }
         else if (cmd == "PATH" && tok.size() >= 2) { AfxSetDeviceServerPath(CString(Widen(tok[1].c_str()).c_str())); }

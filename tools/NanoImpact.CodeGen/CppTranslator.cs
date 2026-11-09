@@ -57,6 +57,8 @@ namespace NanoImpact.CodeGen
             "ProcessProcFunction", "AfxThreadWaitDialog", "AfxThreadWaitDialogProcessing",
         };
 
+        private static string _namespace = "NanoImpact.Hardware.Device";
+
         private sealed class Func
         {
             public int StartLine;
@@ -67,14 +69,16 @@ namespace NanoImpact.CodeGen
             public string Name;
         }
 
-        public static void Run(string cppPath, string hPath, string outDir, string className, int chunkLines)
+        public static void Run(string cppPath, string hPath, string outDir, string className, int chunkLines, int fromLine = 1, int toLine = int.MaxValue,
+            string ns = "NanoImpact.Hardware.Device")
         {
             Encoding cp949 = Encoding.GetEncoding(949);
             string[] lines = File.ReadAllText(cppPath, cp949).Replace("\r\n", "\n").Split('\n');
             // 기본 인자는 헤더와 .cpp 앞쪽의 전방 선언 양쪽에 있다
             Dictionary<string, List<string>> defaults = ReadDefaults(File.ReadAllText(hPath, cp949) + "\n" + string.Join("\n", lines));
             List<Func> all = Extract(lines);
-            List<Func> funcs = all.Where(f => !HandPorted.Contains(f.Name)).ToList();
+            List<Func> funcs = all.Where(f => !HandPorted.Contains(f.Name) && f.StartLine >= fromLine && f.StartLine <= toLine).ToList();
+            _namespace = ns;
             Console.WriteLine("손으로 옮기는 함수 {0}개 제외", all.Count - funcs.Count);
             Directory.CreateDirectory(outDir);
 
@@ -94,7 +98,7 @@ namespace NanoImpact.CodeGen
                   .Append(" 을 NanoImpact.CodeGen translate로 옮긴 뒤 손으로 고친 코드.\r\n");
                 sb.Append("#pragma warning disable IDE1006, IDE0059, CS0162, CS0168, CS0219\r\n");
                 sb.Append("using System;\r\nusing NanoImpact.Core.Native;\r\nusing static NanoImpact.Core.Def;\r\nusing static NanoImpact.Core.Native.CRuntime;\r\n\r\n");
-                sb.Append("namespace NanoImpact.Hardware.Device\r\n{\r\n    public sealed partial class ").Append(className).Append("\r\n    {\r\n");
+                sb.Append("namespace ").Append(_namespace).Append("\r\n{\r\n    public sealed partial class ").Append(className).Append("\r\n    {\r\n");
                 foreach (Func f in g)
                 {
                     sb.Append("        // ---- ").Append(src).Append(':').Append(f.StartLine).Append(" ----\r\n");
@@ -110,7 +114,8 @@ namespace NanoImpact.CodeGen
 
         // ---- 함수 떼어 내기 ----
 
-        private static readonly Regex SigRx = new Regex(@"^([A-Za-z_][\w\s\*]*?)\s+\**\s*([A-Za-z_]\w*)\s*\(([^;{}]*)\)\s*$");
+        // 반환형 + (Class::)이름 + (인자). 멤버 함수 정의(CNanoImpact2020cfeDlg::X)도 받는다.
+        private static readonly Regex SigRx = new Regex(@"^([A-Za-z_][\w\s\*]*?)\s+\**\s*(?:\w+::)?([A-Za-z_]\w*)\s*\(([^;{}]*)\)\s*$");
 
         private static List<Func> Extract(string[] lines)
         {
@@ -355,6 +360,8 @@ namespace NanoImpact.CodeGen
             // 구조체 포인터 지역 변수: IntegratedCommandStruct *p = ... → IntegratedCommandStruct p = ...
             s = Regex.Replace(s, @"\b(IntegratedCommandStruct|ScanRotationCalibrationData|ClientPublicData|\w+PARAMS|USB_DEVICE_DATA_INFO)\s*\*\s*(\w+)", "$1 $2");
 
+            // CString.Format(...) → s = Format(...)
+            s = Regex.Replace(s, @"\b(\w+)\.Format\s*\(", "$1 = Format(");
             // 주소 인자: f(a, &x) → f(a, ref x)  (쉼표·여는 괄호 뒤의 &는 비트 AND가 될 수 없다)
             s = Regex.Replace(s, @"([(,]\s*)&\s*([A-Za-z_][\w\.]*(?:\[[^\]]+\])?)", "$1ref $2");
 

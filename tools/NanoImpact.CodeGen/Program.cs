@@ -33,8 +33,10 @@ namespace NanoImpact.CodeGen
             {
                 if (args.Length >= 5 && args[0] == "translate")
                 {
-                    // NanoImpact.CodeGen translate <원본.cpp> <원본.h> <출력 폴더> <클래스> [묶음 줄 수]
-                    CppTranslator.Run(args[1], args[2], args[3], args[4], args.Length > 5 ? int.Parse(args[5]) : 2000);
+                    // NanoImpact.CodeGen translate <원본.cpp> <원본.h> <출력 폴더> <클래스> [묶음 줄 수] [시작 줄] [끝 줄] [네임스페이스]
+                    CppTranslator.Run(args[1], args[2], args[3], args[4], args.Length > 5 ? int.Parse(args[5]) : 2000,
+                        args.Length > 6 ? int.Parse(args[6]) : 1, args.Length > 7 ? int.Parse(args[7]) : int.MaxValue,
+                        args.Length > 8 ? args[8] : "NanoImpact.Hardware.Device");
                     return 0;
                 }
                 if (args.Length >= 3 && args[0] == "dispatch")

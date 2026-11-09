@@ -1,0 +1,44 @@
+INI ..\..\device_harness\out\ini\USBINTEGRATEDDATA.INI
+TICK 1000
+SET m_nSaveScanMode 7
+# --- scan start like SemScanModeSelectAndScanStart: mode 18 640x480 avg 1 ---
+SET m_nSEAutoBrightContrastCount 0
+SET m_nSEFrameCount 0
+SET m_nSEAverageNumber 1
+SET m_nSEAverageCount 0
+SET m_nSEAverageIndex 0
+SET m_nSEBitmapPixelWidth 640
+SET m_nSEBitmapPixelHeight 480
+SET m_bSEImageCaptureStart 1
+SET m_nSemSEScanModeValue 18
+SET m_nPhotoScanMode 18
+SET m_nSEDrawXPositionB 0
+SET m_nSEDrawYPositionB 0
+SET m_nSEBitmapXOffsetB 0
+SET m_nSEBitmapYOffsetB 0
+SET m_bPhotoScanCompleted 0
+PHOTO 640 480
+FRAME 640 480 11 4096
+FRAME 640 480 12 3001
+DUMP
+SET m_bPhotoFilter1SelectFlag 1
+SET m_bPhotoFilter2SelectFlag 1
+# --- scan start like SemScanModeSelectAndScanStart: mode 19 640x480 avg 1 ---
+SET m_nSEAutoBrightContrastCount 0
+SET m_nSEFrameCount 0
+SET m_nSEAverageNumber 1
+SET m_nSEAverageCount 0
+SET m_nSEAverageIndex 0
+SET m_nSEBitmapPixelWidth 640
+SET m_nSEBitmapPixelHeight 480
+SET m_bSEImageCaptureStart 1
+SET m_nSemSEScanModeValue 19
+SET m_nPhotoScanMode 19
+SET m_nSEDrawXPositionB 0
+SET m_nSEDrawYPositionB 0
+SET m_nSEBitmapXOffsetB 0
+SET m_nSEBitmapYOffsetB 0
+SET m_bPhotoScanCompleted 0
+PHOTO 640 480
+FRAME 640 480 13 65536
+DUMP
