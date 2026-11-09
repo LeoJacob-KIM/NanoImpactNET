@@ -1,0 +1,466 @@
+﻿# make_sweep.ps1 -Value 0 로 만든 전수 시나리오 (직접 고치지 말 것)
+CALL AfxUSBFT232HLoadDLL()
+CALL AfxCreateIntegratedCommand()
+PATH ini
+CALL AfxUSBFT232HSetOwnerWindow(HWND) 1
+CALL AfxUSBFT232HSetHWSetupControlWindow(HWND) 3
+CALL AfxUSBFT232HSetStageSetupControlWindow(HWND) 4
+CALL AfxFT232HPortOpen(int) 2
+CALL AfxFT232HPortOpen(int) 0
+CALL AfxFT232HPortOpen(int) 1
+CALL AfxInitilizePublicParameters()
+CALL AfxFT232HDeviceUse(int) 1
+CALL AfxSetSemModel(int,double,double) 0 2.4 2.0
+CALL AfxGetIntegratedDataFromFile()
+CALL AfxIntegratedSetWDOLSrotZoomingLinearize()
+CALL AfxGetScanRotationCalibrationDataFromFile()
+CALL AfxSEMSystemInitilize()
+CALL AfxCreateCNCSendThread()
+CALL AfxUSBFT232HSetOwnerWindow(HWND) 1
+CALL AfxUSBFT232HSetMainControlWindow(HWND) 1
+CALL AfxUSBFT232HSetHWSetupControlWindow(HWND) 1
+CALL AfxUSBFT232HSetStageSetupControlWindow(HWND) 1
+CALL AfxUSBFT232HSetPopupHWSetupControlWindow(HWND) 1
+CALL AfxUSBFT232HSetChild5Window(HWND) 1
+CALL AfxGetFirstTickCount()
+CALL AfxGetSecondTickCount()
+CALL AfxFT232HClose(int) 0
+CALL AfxFT232HResetDevice(int) 0
+CALL AfxFT232HPurge(int,ULONG) 0 0
+CALL AfxFT232HSetTimeouts(int,ULONG,ULONG) 0 0 0
+CALL AfxFT232HSetBitMode(int,UCHAR,UCHAR) 0 0 0
+CALL AfxFT232HSetLatencyTimer(int,UCHAR) 0 0
+CALL AfxFT232HSetUSBParameters(int,ULONG,ULONG) 0 0 0
+CALL AfxFT232HSetFlowControl(int,USHORT,UCHAR,UCHAR) 0 0 0 0
+CALL AfxGetIntegratedDataFromFile()
+CALL AfxSetIntegratedDataToFile()
+CALL AfxCheckIntegratedDataError()
+CALL AfxGetScanRotationCalibrationDataFromFile()
+CALL AfxSetScanRotationCalibrationDataToFile()
+CALL AfxFT232HPortOpen(int) 0
+CALL AfxFT232HPortSendCommand(int,WORD,int) 0 0 0
+CALL AfxFT232HPortSendAvrCommand(int,char*,int) 0 0; 0
+CALL AfxFT232HPortSendAvrCommand(int,char*) 0 0;
+CALL AfxCreateSeImageCommand()
+CALL AfxSEMSystemInitilize()
+CALL AfxSEMSystemInitilizeHVOff()
+CALL AfxSemModelCLInitialize(int,double,double) 0 0.5 0.5
+CALL AfxInitilizePublicParameters()
+CALL AfxSetSemModel(int) 0
+CALL AfxSetSemModel(int,double,double) 0 0.5 0.5
+CALL AfxCreateCNCSendThread()
+CALL AfxCreateFocusDegaussingThread(int,int,int,int) 0 0 0 0
+CALL AfxIntegratedFocusDegaussing(int,int) 0 0
+CALL AfxThreadWaitDialog(HWND) 1
+CALL AfxCreateScanBridgeThread()
+CALL AfxScanBridgeDataRead()
+CALL AfxSetSEMVacuumState(int) 0
+CALL AfxScanBridgeSetSemStandbyMode()
+CALL AfxSbrCheckSumCommand()
+CALL AfxSbrAssembleCommand(char*) 0;
+CALL AfxScanBridgePDCommand()
+CALL AfxScanBridgeARCommand()
+CALL AfxScanBridgeEVCommand()
+CALL AfxScanBridgeVSCommand()
+CALL AfxScanBridgeVLCommand()
+CALL AfxScanBridgeVLCommand(int,int,char*) 0 0 0;
+CALL AfxScanBridgeEMCommand()
+CALL AfxScanBridgeRNCommand()
+CALL AfxScanBridgeRNCommand(int,int,char*) 0 0 0;
+CALL AfxScanBridgeRACommand()
+CALL AfxScanBridgeRACommand(int,int,char*) 0 0 0;
+CALL AfxScanBridgeRPCommand()
+CALL AfxScanBridgeRPCommand(int,int,char*) 0 0 0;
+CALL AfxScanBridgeRMCommand()
+CALL AfxScanBridgeRMCommand(int,int,char*) 0 0 0;
+CALL AfxScanBridgeSMCommand(int) 0
+CALL AfxScanBridgeMHCommand(int) 0
+CALL AfxScanBridgeMMCommand(int,int,char*,int) 0 0 0; 0
+CALL AfxScanBridgeMMCommand(int,int,char*) 0 0 0;
+CALL AfxScanBridgeXYAxisCenterMoveCommand()
+CALL AfxScanBridgeMCCommand()
+CALL AfxScanBridgeMCCommand(int,char*,char*) 0 0; 0;
+CALL AfxScanBridgeGetRotaryAreaPulseCommand()
+CALL AfxScanBridgeBFCommand()
+CALL AfxScanBridgeBFCommand(int,char*) 0 0;
+CALL AfxScanBridgeTSCommand()
+CALL AfxScanBridgeTSCommand(int,int,char*) 0 0 0;
+CALL AfxScanBridgeTCCommand()
+CALL AfxScanBridgeTBCommand()
+CALL AfxScanBridgeBTCommand()
+CALL AfxScanBridgeLTCommand()
+CALL AfxScanBridgeRBCommand()
+CALL AfxScanBridgeZTCommand()
+CALL AfxScanBridgeZTCommand(int,char*) 0 0;
+CALL AfxScanBridgeSBCommand()
+CALL AfxScanBridgeSBCommand(int,int,char*,char*,char*) 0 0 0; 0; 0;
+CALL AfxScanBridgeECCommand()
+CALL AfxScanBridgeVRCommand()
+CALL AfxScanBridgeULCommand()
+CALL AfxScanBridgeLSCommand()
+CALL AfxScanBridgeASCommand()
+CALL AfxScanBridgePowerOff(int) 0
+CALL AfxScanBridgeLRMirror(int) 0
+CALL AfxScanBridgeTBMirror(int) 0
+CALL AfxScanBridgeSetXImageAmp()
+CALL AfxScanBridgeSetXImageAmp(int) 0
+CALL AfxScanBridgeSetXImageAmpApply(int) 0
+CALL AfxScanBridgeSetXImageOffset()
+CALL AfxScanBridgeSetXImageOffset(int) 0
+CALL AfxScanBridgeSetXImageOffsetApply(int) 0
+CALL AfxScanBridgeSetYImageAmp()
+CALL AfxScanBridgeSetYImageAmp(int) 0
+CALL AfxScanBridgeSetYImageAmpApply(int) 0
+CALL AfxScanBridgeSetYImageOffset()
+CALL AfxScanBridgeSetYImageOffset(int) 0
+CALL AfxScanBridgeSetYImageOffsetApply(int) 0
+CALL AfxScanBridgeSetScanClockAndWaveform()
+CALL AfxScanBridgeSetScanClockFramePerSec()
+CALL AfxScanBridgeGunHvSMPSOn()
+CALL AfxScanBridgeGunHvSMPSOff()
+CALL AfxScanBridgeGunHVOn()
+CALL AfxScanBridgeGunHVOff()
+CALL AfxScanBridgeSpellmanGunHVOn()
+CALL AfxScanBridgeSpellmanGunHVOff()
+CALL AfxScanBridgeSetGunHVIndex(int) 0
+CALL AfxScanBridgeSetGunHVIndexExecute(int) 0
+CALL AfxScanBridgeSetGunHVValue(int) 0
+CALL AfxScanBridgeSetGunHVValue(double,BOOL) 0.5 0
+CALL AfxScanBridgeSetGunHVValueVoltage(int) 0
+CALL AfxScanBridgeGunValveOpen()
+CALL AfxScanBridgeGunValveClose()
+CALL AfxScanBridgeFilamentImageScanStart()
+CALL AfxScanBridgeFilamentImageScanStop()
+CALL AfxScanBridgeSetBiasValue()
+CALL AfxScanBridgeSetBiasValueExecute()
+CALL AfxScanBridgeSetBiasValue(int) 0
+CALL AfxScanBridgeSetBiasVoltageValue(double) 0.5
+CALL AfxScanBridgeGetBiasValue()
+CALL AfxScanBridgeSetFilamentValue()
+CALL AfxScanBridgeSetFilamentValueExecute()
+CALL AfxScanBridgeSetFilamentValue(int) 0
+CALL AfxScanBridgeSetFilamentVoltageValue(double) 0.5
+CALL AfxScanBridgeGetFilamentValue()
+CALL AfxScanBridgeCollectorOn()
+CALL AfxScanBridgeCollectorOff()
+CALL AfxScanBridgeSetZoomXControl()
+CALL AfxScanBridgeSetZoomYControl()
+CALL AfxScanBridgeSetZoomXControl(int) 0
+CALL AfxScanBridgeSetZoomYControl(int) 0
+CALL AfxScanBridgeGetZoomXControl()
+CALL AfxScanBridgeGetZoomYControl()
+CALL AfxScanBridgeSetDynamicFocusAB(int) 0
+CALL AfxScanBridgeSetSyncOn()
+CALL AfxScanBridgeSetSyncOn(BOOL) 0
+CALL AfxScanBridgeGetSyncOn()
+CALL AfxScanBridgeSetOrthogonal()
+CALL AfxScanBridgeSetOrthogonal(int) 0
+CALL AfxScanBridgeGetOrthogonal()
+CALL AfxScanBridgeSetGunScanRelay(BOOL) 0
+CALL AfxScanBridgeGetGunScanRelay()
+CALL AfxScanBridgeSetScanRotationValue(int) 0
+CALL AfxSRotCaliGetZoomRelayRatio(int) 0
+CALL AfxScanBridgeResetScanRotationValue(int) 0
+CALL AfxScanBridgeSetScanRotation(int) 0
+CALL AfxScanBridgeSetSRot45XAmpValue(int) 0
+CALL AfxScanBridgeSetSRot90XAmpValue(int) 0
+CALL AfxScanBridgeSetSRot45YAmpValue(int) 0
+CALL AfxScanBridgeSetSRot90YAmpValue(int) 0
+CALL AfxScanBridgeGetVaccumState()
+CALL AfxScanBridgeProgramExitAxisPosition()
+CALL AfxScanBridgeProgramExitPowerOff()
+CALL AfxScanBridgeProgramExitDeviceError()
+CALL AfxScanBridgeAxisMotion(int,double,int) 0 0.5 0
+CALL AfxScanBridgeXmmMotion(double,int) 0.5 0
+CALL AfxScanBridgeYmmMotion(double,int) 0.5 0
+CALL AfxScanBridgeZmmMotion(double,int) 0.5 0
+CALL AfxScanBridgeRdegMotion(double,int) 0.5 0
+CALL AfxScanBridgeRabsMotion(double,int) 0.5 0
+CALL AfxScanBridgeTdegMotion(double,int) 0.5 0
+CALL AfxScanBridgeTmmMotion(double,int) 0.5 0
+CALL AfxScanBridgeSetAxisLimitMotion(int) 0
+CALL AfxScanBridgeSetAxisLimitStateSending(int) 0
+CALL AfxScanBridgeGotoXYZRTSampleLoadPosition()
+CALL AfxScanBridgeGotoXYZRTSampleUnloadPosition()
+CALL AfxScanBridgeStageAxisEmergencyStopExecute()
+CALL AfxScanBridgeStageAxisResetControlExecute()
+CALL AfxScanBridgeSetSEMAirOnOff()
+CALL AfxScanBridgeSetSEMAirOnExecute()
+CALL AfxScanBridgeSetSEMAirOffExecute()
+CALL AfxCreateSEImageDataThread()
+CALL AfxBseImageInitilized()
+CALL AfxIntegratedScintilatorHVOn()
+CALL AfxIntegratedScintilatorHVOff()
+CALL AfxIntegratedSpellmanScintilatorHVOn()
+CALL AfxIntegratedSpellmanScintilatorHVOff()
+CALL AfxIntegratedPMTHVOn()
+CALL AfxIntegratedPMTHVOff()
+CALL AfxIntegratedSpellmanPMTHVOn()
+CALL AfxIntegratedSpellmanPMTHVOff()
+CALL AfxIntegratedSetPMTHVRelayOn()
+CALL AfxIntegratedSetPMTHVRelayOff()
+CALL AfxIntegratedSetDETHVRelayOn()
+CALL AfxIntegratedSetDETHVRelayOff()
+CALL AfxIntegratedBSEImageOn()
+CALL AfxIntegratedBSEImageOff()
+CALL AfxIntegratedDETHVOn()
+CALL AfxIntegratedDETHVOff()
+CALL AfxIntegratedSetEmissionReceive()
+CALL AfxIntegratedSetEmissionReceiveStop()
+CALL AfxIntegratedSetSM2500Hv10k(int) 0
+CALL AfxIntegratedSetScanRotationValue(int) 0
+CALL AfxIntegratedSetSeCommandStartValue()
+CALL AfxIntegratedSetScreenMode(int) 0
+CALL AfxIntegratedSetScanMode(int) 0
+CALL AfxIntegratedScanImageDataCaptureStart(int) 0
+CALL AfxIntegratedScanImageDataCaptureStart()
+CALL AfxIntegratedScanImageDataCaptureStop()
+CALL AfxIntegratedInitializeParameters(int) 0
+CALL AfxIntegratedSetScanGeneration(int) 0
+CALL AfxIntegratedResetScanGeneration()
+CALL AfxIntegratedSetMagnification(int,int) 0 0
+CALL AfxIntegratedSetZoomValue(int,int,double) 0 0 0.5
+CALL AfxIntegratedFindMagRelayRatio(int) 0
+CALL AfxIntegratedSetCL1()
+CALL AfxIntegratedSetCL2()
+CALL AfxIntegratedSetCL1(int) 0
+CALL AfxIntegratedSetCL2(int) 0
+CALL AfxIntegratedSetCL1(int,int) 0 0
+CALL AfxIntegratedSetCL2(int,int) 0 0
+CALL AfxIntegratedGetCL1()
+CALL AfxIntegratedGetCL2()
+CALL AfxIntegratedGetCL1(int) 0
+CALL AfxIntegratedGetCL2(int) 0
+CALL AfxIntegratedSetOL(int,int) 0 0
+CALL AfxIntegratedSetFocusCoarse(int) 0
+CALL AfxIntegratedSetWDAutoAdjustFocusCoarse(int) 0
+CALL AfxIntegratedSetWobblerOLC(int) 0
+CALL AfxIntegratedSetWobblerSTX(int) 0
+CALL AfxIntegratedSetWobblerSTY(int) 0
+CALL AfxIntegratedSetSpotSize()
+CALL AfxIntegratedSetSpotSize(int) 0
+CALL AfxIntegratedGetSpotSize()
+CALL AfxIntegratedGetCLSpotSize()
+CALL AfxIntegratedSetCLSpotSize(int) 0
+CALL AfxIntegratedSetWobble()
+CALL AfxIntegratedSetWobble(int) 0
+CALL AfxIntegratedRunWobble(BOOL) 0
+CALL AfxIntegratedGetWobble()
+CALL AfxIntegratedSetImageShiftInitilize()
+CALL AfxIntegratedSetImageShiftX()
+CALL AfxIntegratedSetImageShiftY()
+CALL AfxIntegratedSetImageShiftX(int) 0
+CALL AfxIntegratedSetImageShiftY(int) 0
+CALL AfxIntegratedGetImageShiftX()
+CALL AfxIntegratedGetImageShiftY()
+CALL AfxIntegratedSetGunAlignX()
+CALL AfxIntegratedSetGunAlignX(int) 0
+CALL AfxIntegratedGetGunAlignX()
+CALL AfxIntegratedSetGunAlignY()
+CALL AfxIntegratedSetGunAlignY(int) 0
+CALL AfxIntegratedGetGunAlignY()
+CALL AfxIntegratedSetBeamAlignX()
+CALL AfxIntegratedSetBeamAlignX(int) 0
+CALL AfxIntegratedGetBeamAlignX()
+CALL AfxIntegratedSetBeamAlignY()
+CALL AfxIntegratedSetBeamAlignY(int) 0
+CALL AfxIntegratedGetBeamAlignY()
+CALL AfxIntegratedSetStigX()
+CALL AfxIntegratedSetStigY()
+CALL AfxIntegratedSetStigX(int) 0
+CALL AfxIntegratedSetStigY(int) 0
+CALL AfxIntegratedGetStigX()
+CALL AfxIntegratedGetStigY()
+CALL AfxIntegratedSetContrast()
+CALL AfxIntegratedSetContrastZero()
+CALL AfxIntegratedSetContrast(int) 0
+CALL AfxIntegratedGetContrast()
+CALL AfxIntegratedSetBrightness()
+CALL AfxIntegratedSetBrightness(int) 0
+CALL AfxIntegratedGetBrightness()
+CALL AfxIntegratedSetWDCompensation()
+CALL AfxIntegratedSetWDOLSrotZoomingLinearize()
+CALL AfxIntegratedFindWDValue(int) 0
+CALL AfxIntegratedLensCoilCurrentMinimum()
+CALL AfxSetSEMGunHvIndex(int,BOOL) 0 0
+CALL AfxGetSEMGunHvIndex()
+CALL AfxGetSEMGunHvVoltage()
+CALL AfxGetSEMGunHvBackupVoltage()
+CALL AfxSetSEMFilamentValue(int,BOOL) 0 0
+CALL AfxGetSEMFilamentVoltage()
+CALL AfxGetSEMFilamentBackupVoltage()
+CALL AfxGetSEMFilamentStartVoltage()
+CALL AfxGetSEMFilamentStopVoltage()
+CALL AfxSetSEMBiasValue(int,BOOL) 0 0
+CALL AfxGetSEMBiasVoltage()
+CALL AfxGetSEMBiasBackupVoltage()
+CALL AfxGetSEMBiasStartVoltage()
+CALL AfxGetSEMBiasStopVoltage()
+CALL AfxSetSEMMagnificationIndex(int) 0
+CALL AfxGetSEMMagnificationIndex()
+CALL AfxSetSEMOLWDValue(int) 0
+CALL AfxSetSEMFocusCoarse(int) 0
+CALL AfxSetSEMFocusFine(int) 0
+CALL AfxGetSEMFocusCoarse()
+CALL AfxGetSEMFocusFine()
+CALL AfxGetSEMEmissionCurrent()
+CALL AfxSetSEMGunHVTimeDelayData(BOOL,double,double,double,double,double,double,double,double) 0 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5
+CALL AfxSetSEMFilamentTimeDelayData(BOOL,double,double,double,double,double,double,double,double) 0 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5
+CALL AfxSetSEMBiasTimeDelayData(BOOL,double,double,double,double,double,double,double,double) 0 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5
+CALL AfxGetSEMStigXLowLimit()
+CALL AfxGetSEMStigXHighLimit()
+CALL AfxGetSEMStigYLowLimit()
+CALL AfxGetSEMStigYHighLimit()
+CALL AfxGetSEMStigXReference()
+CALL AfxGetSEMStigYReference()
+CALL AfxGetSEMStigXValue()
+CALL AfxGetSEMStigYValue()
+CALL AfxSetSEMStigXLowLimit(int) 0
+CALL AfxSetSEMStigXHighLimit(int) 0
+CALL AfxSetSEMStigYLowLimit(int) 0
+CALL AfxSetSEMStigYHighLimit(int) 0
+CALL AfxSetSEMStigXReference(int) 0
+CALL AfxSetSEMStigYReference(int) 0
+CALL AfxGetSEMZoomXMax()
+CALL AfxGetSEMZoomYMax()
+CALL AfxGetSEMZoomXValue()
+CALL AfxGetSEMZoomYValue()
+CALL AfxGetSEMXScanAmp()
+CALL AfxGetSEMXScanOffset()
+CALL AfxGetSEMYScanAmp()
+CALL AfxGetSEMYScanOffset()
+CALL AfxGetSEMSpotSizeCL1()
+CALL AfxGetSEMSpotSizeCL2()
+CALL AfxGetSEMSkipPixelCount()
+CALL AfxGetSEMOverSampleCount()
+CALL AfxGetSEMFrameFreqCount()
+CALL AfxGetSEMXScanUpValue()
+CALL AfxGetSEMYScanUpValue()
+CALL AfxGetSEMXScanDownValue()
+CALL AfxGetSEMYScanDownValue()
+CALL AfxGetSEMXScanRot45DegValue()
+CALL AfxGetSEMXScanRot90DegValue()
+CALL AfxGetSEMYScanRot45DegValue()
+CALL AfxGetSEMYScanRot90DegValue()
+CALL AfxSetSEMXScanRot45DegValue(int) 0
+CALL AfxSetSEMXScanRot90DegValue(int) 0
+CALL AfxSetSEMYScanRot45DegValue(int) 0
+CALL AfxSetSEMYScanRot90DegValue(int) 0
+CALL AfxGetSEMREDScanFilterFactorValue()
+CALL AfxGetSEMFASTScanFilterFactorValue()
+CALL AfxGetSEMSLOW1ScanFilterFactorValue()
+CALL AfxGetSEMSLOW2ScanFilterFactorValue()
+CALL AfxGetSEMPHOTOScanFilterFactorValue()
+CALL AfxSetSEMREDScanFilterFactorValue(int) 0
+CALL AfxSetSEMFASTScanFilterFactorValue(int) 0
+CALL AfxSetSEMSLOW1ScanFilterFactorValue(int) 0
+CALL AfxSetSEMSLOW2ScanFilterFactorValue(int) 0
+CALL AfxSetSEMPHOTOScanFilterFactorValue(int) 0
+CALL AfxGetSEMCorrectionWDMaxValue()
+CALL AfxSetSEMCorrectionWDMaxValue(int) 0
+CALL AfxGetSEMOLWDx10Value()
+CALL AfxGetSEMCorrectionWDZAxisValue()
+CALL AfxSetSEMCorrectionWDZAxisValue(int) 0
+CALL AfxGetSEMCorrectionWDOLCValue()
+CALL AfxSetSEMCorrectionWDOLCValue(int) 0
+CALL AfxGetSEMCorrectionWDSRotation()
+CALL AfxSetSEMCorrectionWDSRotation(int) 0
+CALL AfxGetSEMSRotationValue()
+CALL AfxSetSEMSRotationValue(int) 0
+CALL AfxGetSEMCorrectionWDZoomValue()
+CALL AfxSetSEMCorrectionWDZoomValue(int) 0
+CALL AfxGetSEMCorrectionWDMinMagValue()
+CALL AfxSetSEMCorrectionWDMinMagValue(int) 0
+CALL AfxGetSEMCorrectionWDMinMag(int,BOOL) 0 0
+CALL AfxGetSEMSpotSizeValue()
+CALL AfxGetSEMStageHorzAlignValue()
+CALL AfxSetSEMStageHorzAlignValue(int) 0
+CALL AfxSetSEMXMagStepRelayRatio(int) 0
+CALL AfxSetSEMYMagStepRelayRatio(int) 0
+CALL AfxSetSEMMagnificationStepIndex(int,BOOL) 0 0
+CALL AfxSetSEMOrthogonalValue(int) 0
+CALL AfxGetSEMOrthogonalValue()
+CALL AfxGetSEMHVRatioValue()
+CALL AfxGetSEMCLVRefValue(int) 0
+CALL AfxGetSEMCLARefValue(int) 0
+CALL AfxGetSEMAmpRkValue()
+CALL AfxGetSEMRefRValue()
+CALL AfxGetSEMSyncTypeValue()
+CALL AfxGetSEMSyncFreqValue()
+CALL AfxSetSEMOLWDAutoSave()
+CALL AfxSetSEMWDSetupZAxis(int) 0
+CALL AfxIntegratedSetWDSetupFlag(BOOL) 0
+CALL AfxIntegratedGetWDSetupFlag()
+CALL AfxIntegratedSetWDDataDisplayFlag(BOOL) 0
+CALL AfxIntegratedGetWDDataDisplayFlag()
+CALL AfxIntegratedSetStageHorAlign(BOOL) 0
+CALL AfxIntegratedGetStageHorAlign()
+CALL AfxIntegratedSetWDSRotationAdjust(BOOL) 0
+CALL AfxIntegratedGetWDSRotationAdjust()
+CALL AfxIntegratedSetWDScaleZoomAdjust(BOOL) 0
+CALL AfxIntegratedGetWDScaleZoomAdjust()
+CALL AfxGetSEMCurrentZAxisPosition()
+CALL AfxSetSEMCurrentZAxisPosition(double) 0.5
+CALL AfxSetWDOLCoarseToFocusCoarse()
+CALL AfxSetWDSRotToSRotation()
+CALL AfxGetChangeEbableFlag()
+CALL AfxSetChangeEbableFlag(BOOL) 0
+CALL AfxGetSEMOrthogonalCheckFlag()
+CALL AfxSetSEMOrthogonalCheckFlag(BOOL) 0
+CALL AfxGetSEMPhotoNoneStopFlag()
+CALL AfxSetSEMPhotoNoneStopFlag(BOOL) 0
+CALL AfxGetHVCalibrationCheckFlag()
+CALL AfxSetHVCalibrationCheckFlag(BOOL) 0
+CALL AfxGetSEMMagStepValue(int) 0
+CALL AfxGetSEMNegativeImageCheckFlag()
+CALL AfxSetSEMNegativeImageCheckFlag(BOOL,BOOL) 0 0
+CALL AfxGetSEMLRMirrorImageCheckFlag()
+CALL AfxSetSEMLRMirrorImageCheckFlag(BOOL,BOOL) 0 0
+CALL AfxGetSEMTBMirrorImageCheckFlag()
+CALL AfxSetSEMTBMirrorImageCheckFlag(BOOL,BOOL) 0 0
+CALL AfxGetSEMDACL1Value(int) 0
+CALL AfxSetSEMDACL1Value(int,int) 0 0
+CALL AfxGetSEMDACL2Value(int) 0
+CALL AfxSetSEMDACL2Value(int,int) 0 0
+CALL AfxGetSEMOLCompensation()
+CALL AfxSetSEMOLCompensation(int) 0
+CALL AfxIntegratedSetSkipPixelNum(int) 0
+CALL AfxIntegratedGetSkipPixelNum()
+CALL AfxIntegratedSetOverSampleNum(int) 0
+CALL AfxIntegratedCalcAndExecuteFrameFreq()
+CALL AfxIntegratedSetFrameFreq(int) 0
+CALL AfxIntegratedSetXScanUp(int) 0
+CALL AfxIntegratedSetYScanUp(int) 0
+CALL AfxIntegratedSetXScanDown(int) 0
+CALL AfxIntegratedSetYScanDown(int) 0
+CALL AfxIntegratedSetImageCaptureChange(int,int) 0 0
+CALL AfxIntegratedSetFPGANormalScreenMode()
+CALL AfxIntegratedSetGunHVECValue(WORD) 0
+CALL AfxIntegratedSetAutoProcessMode(int) 0
+CALL AfxIntegratedSetSampleHeight(double) 0.5
+CALL AfxIntegratedSetSampleWidth(double) 0.5
+CALL AfxIntegratedSetSampleName(char*) 0;
+CALL AfxIntegratedGetSampleHeight()
+CALL AfxIntegratedGetSampleWidth()
+CALL AfxGetSEMBseNegativeImageCheckFlag()
+CALL AfxSetSEMBseNegativeImageCheckFlag(BOOL,BOOL) 0 0
+CALL AfxGetSEMBseLRMirrorImageCheckFlag()
+CALL AfxSetSEMBseLRMirrorImageCheckFlag(BOOL,BOOL) 0 0
+CALL AfxGetSEMBseTBMirrorImageCheckFlag()
+CALL AfxSetSEMBseTBMirrorImageCheckFlag(BOOL,BOOL) 0 0
+CALL AfxIntegratedSetScanHWSetupOptionFlag(int,int,int,int,int,int,int,int,int,int,int) 0 0 0 0 0 0 0 0 0 0 0
+CALL AfxIntegratedSetStageOptionData(int,int,BOOL,BYTE,int,DWORD,double) 0 0 0 0 0 0 0.5
+CALL AfxIntegratedSetMagx35kZoomRatio(double) 0.5
+CALL AfxIntegratedAcSyncScanImageCaptureStart(int,BOOL,int,double,double) 0 0 0 0.5 0.5
+CALL AfxIntegratedAcSyncScanImageCaptureStop()
+CALL AfxIntegratedSetAcSyncScanGeneration(int,int,double,int,int,int,int,int,int,int) 0 0 0.5 0 0 0 0 0 0 0
+CALL AfxIntegratedCLLMHModeSelectDataSet(int,int,int,int) 0 0 0 0
+CALL AfxIntegratedCLLMHModeValueDataSet(int,int,int,int,int,int,int,int) 0 0 0 0 0 0 0 0
+CALL AfxIntegratedCLLMHModeDataBackup(int,int,int,int) 0 0 0 0
+CALL AfxIntegratedSetThreadAllStopFlag()
+CALL AfxFT232HDeviceUse(int) 0
+CALL AfxSEMSystemThreadClose()
+CALL AfxReleaseIntegratedCommand()
+CALL AfxReleasePublicParameters()
+CALL AfxFT232HPortClose(int) 0
+CALL AfxUSBFT232HFreeDLL()

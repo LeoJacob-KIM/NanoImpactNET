@@ -1,4 +1,4 @@
-# golden.cpp / NanoImpact.Verify 공용 시험 입력(vectors.txt) 생성. 시드 고정이라 다시 만들어도 같다.
+﻿# golden.cpp / NanoImpact.Verify 공용 시험 입력(vectors.txt) 생성. 시드 고정이라 다시 만들어도 같다.
 param([string]$Out = (Join-Path $PSScriptRoot 'vectors.txt'))
 
 $rng = New-Object System.Random 12345

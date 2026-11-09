@@ -43,7 +43,7 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 |---|---|---|---|
 | 1 | 장비 통신 하위 계층 | ftd2xx P/Invoke, `Ft232hPort`(열기 순서·송신 3종), Scan Bridge 수신 파서·수신 스레드 | **완료, 기준 구현과 일치** (장비 미시험) |
 | 2 | 상수·구조체·설정 파일 | `DefineStructCode.h` → C# 상수/구조체 자동 변환, MSVC x86 크기·오프셋 대조, INI 3개 읽기·쓰기 왕복 시험 | **완료** — 상수 2,971개 전부, 저장 구조체 3개 배치 MSVC와 동일, INI 왕복 동일 |
-| 3 | 장비 명령 계층 | `AfxScanBridge*`, `AfxIntegrated*` (HV, 필라멘트, 바이어스, CL/OL, 정렬, 스티그, 배율·Zoom 릴레이, 스캔 생성, 스테이지 CNC), Scan Bridge 수신 처리기(PD/AR/EV/VS/VL/EM/RP/RM/LT/…) | |
+| 3 | 장비 명령 계층 | `USB_FT232H_Device.cpp` 전체 → `SemDevice` (전역 변수 → 필드, `Afx*` 함수 → 같은 이름 메서드). 451개는 `NanoImpact.CodeGen translate`로 옮긴 뒤 손질, FT 계층 30개는 손으로 | **완료, 원본 대조 하네스와 일치** (장비 미시험, 스레드 본문은 실제 스레드로 미실행) |
 | 4 | 영상 취득 | SE/BSE 읽기 스레드 → `OnSemSEScanImageData`의 마커 해석(0xFF 프레임 시작, AB/AC, 0xFE/0xFD/0xFC) → 스캔 모드별(RED/FAST/SLOW/PHOTO1~6) 영상 조립 | |
 | 5 | Spellman C-FE HV | `SerialPort`, 프레임·checksum(`0x200-sum`, `&0x7F|0x40`), LF 조립, 명령표 | |
 | 6 | 장비 서비스 | `ModularAssistDevice` + 메인의 `OnSetUsbDevice*`/`SetSEM*` → `ISemDevice` 서비스, 상태 모델 | |
@@ -65,6 +65,13 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 | `RompishImage::SaveBitmap` | BMP 끝에 44바이트 쓰레기, 버퍼 밖 읽기 | 표준 BMP 인코더 사용 |
 | `CoreDlg_S_UDP` | 수신 1회에 CRLF 메시지 1개만, 종료 시 무한 대기 가능 | 고침 |
 | 설정 파일 | 디버그 빌드 미초기화 영역(0xFE)이 그대로 저장됨 | 읽은 바이트를 보존해서 다시 씀 |
+| `AfxIntegratedSetWDOLSrotZoomingLinearize` 등 | `nWDOLCoarse[nWD + 1]` 등 60칸 배열의 61번째를 읽음(다음 필드 값) | 원본과 같은 바이트를 읽음, 진단 기록 |
+| `AfxScanBridgeDataRead` 명령 탐색 | 위 44바이트 버그에 더해, 명령 글자가 없는 메시지는 목록 배열 밖까지 훑다가 우연히 맞으면 공용 데이터의 명령 문자열을 덮어씀 | 고침 (무시) |
+| CL1/CL2 DA 함수 (`AfxIntegratedSetCL1(nSpotSize, …)` 등) | 1부터인 nSpotSize에 0이 오면 전역 배열 [-1]을 읽고 씀 | C#은 예외 — 호출하는 쪽에서 범위 확인 필요 |
+| FT 래퍼 (`AfxFT232HClose(n)` 등) | 장치 번호 범위 검사 없음 | C#은 예외 |
+| `AfxScanBridgeVLCommand` | 수신한 밸브 번호·값으로 5칸 배열 밖(구조체 밖 힙)에 씀 | C#은 예외 (실제 밸브 번호 범위에서는 원본과 같음) |
+| `AfxFT232HPortSendAvrCommand(port, cmd)` | `;`가 없는 명령이면 버퍼 밖을 읽다 죽음 | C#은 예외 |
+| 종료 순서 | `AfxSEMSystemThreadClose` 뒤 `AfxIntegratedSetThreadAllStopFlag`를 부르면 해제된 스레드 인자 접근 | 원본 OnClose 순서를 지킨다 |
 
 ## 5. 검증 도구
 
@@ -85,3 +92,15 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 - `NanoImpact.Verify ini <폴더>` — 원본 INI 3개를 읽고 다시 쓴 바이트가 같은지, 필드 쓰기가 그 필드 바이트만 바꾸는지.
 
 2026-11-09 결과: 배치 556줄 동일(크기 28,432 / 9,712 / 132,480 B), INI 3개 왕복 동일 (원본 `build\Out\Debug`의 파일).
+
+### 장치 계층 (3단계)
+
+- `tools\NanoImpact.CodeGen translate` — 원본 C++ 함수를 C# 초안으로 기계 변환(`->`, Win32 형식, `char[]` → `CharBuffer`, `NULL` 구분,
+  `memset`, 기본 인자 등). 3단계에서 한 번 쓰고 결과(`Device\Port\*.cs`)는 손으로 고쳤으므로 **다시 돌리지 않는다**.
+- C 런타임 흉내: `NanoImpact.Core.Native.CRuntime` (`strcpy/strcat/atoi/atof/_itoa/sprintf`, `<math.h>` 이름). `sprintf`의 `%f/%e/%g`는
+  .NET Framework가 15자리에서 먼저 반올림하는 문제를 피해 정확한 이진값으로 반올림(UCRT와 같음).
+- 실행 환경 분리: `IDeviceHost`(메시지·대화상자·Sleep·스레드), `IFtdi`(ftd2xx). 실제 앱용 WPF 구현은 6~7단계.
+- 원본 대조: `tools\device_harness` (README 참고). 원본 .cpp를 그대로 컴파일한 실행 파일과 C#에 같은 시나리오를 넣어
+  장비 쓰기 바이트·FT 설정·창 메시지·대화상자·Sleep·공용 데이터 변화를 호출 단위로 비교.
+
+2026-11-09 결과: 시작 16 / 전수 464×3 / 수신 588 호출 모두 같음. 다른 것은 원본이 잘못된 인덱스로 배열 밖을 읽고 쓰는 경우뿐(위 4절).

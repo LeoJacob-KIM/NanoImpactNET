@@ -20,6 +20,7 @@ namespace NanoImpact.Verify
                 if (args.Length >= 2 && args[0] == "golden") return Golden(args[1]);
                 if (args.Length >= 1 && args[0] == "layout") return RecordChecks.PrintLayout();
                 if (args.Length >= 2 && args[0] == "ini") return RecordChecks.CheckIni(args[1]);
+                if (args.Length >= 2 && args[0] == "device") return DeviceHarness.Run(args[1]);
             }
             catch (Exception ex)
             {

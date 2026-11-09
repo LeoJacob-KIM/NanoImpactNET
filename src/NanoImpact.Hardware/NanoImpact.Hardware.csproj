@@ -6,4 +6,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="NanoImpact.Verify" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NanoImpact.Core\NanoImpact.Core.csproj" />
+  </ItemGroup>
 </Project>

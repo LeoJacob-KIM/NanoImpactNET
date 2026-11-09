@@ -1,5 +1,6 @@
 // 원본 DefineStructCode.h를 읽어 C# 코드를 만든다.
 //   NanoImpact.CodeGen [DefineStructCode.h 경로] [저장소 루트]
+//   NanoImpact.CodeGen dispatch <USB_FT232H_Device.h> <dispatch.inc>   (원본 대조 하네스용 호출 표)
 // 결과:
 //   src\NanoImpact.Core\Generated\Defines.g.cs   — #define 전부 (C 규칙으로 계산한 값, 원본 이름)
 //   src\NanoImpact.Core\Generated\Records.g.cs   — 설정 파일로 저장되는 구조체 (MSVC x86 배치)
@@ -30,6 +31,18 @@ namespace NanoImpact.CodeGen
         {
             try
             {
+                if (args.Length >= 5 && args[0] == "translate")
+                {
+                    // NanoImpact.CodeGen translate <원본.cpp> <원본.h> <출력 폴더> <클래스> [묶음 줄 수]
+                    CppTranslator.Run(args[1], args[2], args[3], args[4], args.Length > 5 ? int.Parse(args[5]) : 2000);
+                    return 0;
+                }
+                if (args.Length >= 3 && args[0] == "dispatch")
+                {
+                    // NanoImpact.CodeGen dispatch <USB_FT232H_Device.h> <dispatch.inc>
+                    DispatchGen.Run(args[1], args[2]);
+                    return 0;
+                }
                 string header = args.Length > 0 ? args[0] : DefaultHeader;
                 string root = args.Length > 1 ? args[1] : FindRepoRoot();
                 Run(header, root);

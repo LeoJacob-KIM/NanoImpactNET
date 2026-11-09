@@ -3,7 +3,24 @@ using System.Text;
 
 namespace NanoImpact.Core.Native
 {
-    /// <summary>구조체 안의 1차원 배열 (예: int nSyncVal[MAX_SCAN_MODE]). 원본 바이트를 직접 읽고 쓴다.</summary>
+    /// <summary>
+    /// 원본 C 코드의 배열 범위 밖 접근 기록. 원본은 구조체 안에서 배열 끝을 넘어 다음 필드를 읽고 쓰는 곳이 있다
+    /// (예: AfxIntegratedSetWDOLSrotZoomingLinearize의 nWDOLCoarse[nWD + 1]). C#도 같은 바이트를 읽고 쓰되 여기에 알린다.
+    /// </summary>
+    public static class NativeDiagnostics
+    {
+        public static event Action<string> OutOfRange;
+
+        internal static void Report(int offset, int index, int length, string kind)
+        {
+            OutOfRange?.Invoke(kind + " 오프셋 " + offset + " 배열[" + length + "]의 " + index + "번 접근");
+        }
+    }
+
+    /// <summary>
+    /// 구조체 안의 1차원 배열 (예: int nSyncVal[MAX_SCAN_MODE]). 원본 바이트를 직접 읽고 쓴다.
+    /// C처럼 배열 범위를 넘어도 구조체 바이트 안이면 그대로 접근하고(원본 동작 재현) NativeDiagnostics에 알린다.
+    /// </summary>
     public sealed class NativeArray<T> where T : unmanaged
     {
         private readonly byte[] _raw;
@@ -18,17 +35,23 @@ namespace NanoImpact.Core.Native
 
         public int Length { get; }
 
+        private unsafe int ByteOffset(int index, string kind)
+        {
+            if ((uint)index >= (uint)Length) NativeDiagnostics.Report(_offset, index, Length, kind);
+            long b = _offset + (long)index * sizeof(T);
+            if (b < 0 || b + sizeof(T) > _raw.Length) throw new IndexOutOfRangeException("구조체 밖 접근: 오프셋 " + _offset + " 배열[" + Length + "]의 " + index + "번");
+            return (int)b;
+        }
+
         public unsafe T this[int index]
         {
             get
             {
-                if ((uint)index >= (uint)Length) throw new IndexOutOfRangeException();
-                fixed (byte* p = &_raw[_offset]) return ((T*)p)[index];
+                fixed (byte* p = &_raw[ByteOffset(index, "읽기")]) return *(T*)p;
             }
             set
             {
-                if ((uint)index >= (uint)Length) throw new IndexOutOfRangeException();
-                fixed (byte* p = &_raw[_offset]) ((T*)p)[index] = value;
+                fixed (byte* p = &_raw[ByteOffset(index, "쓰기")]) *(T*)p = value;
             }
         }
 
@@ -62,14 +85,21 @@ namespace NanoImpact.Core.Native
         {
             get
             {
-                Check(row, col);
-                fixed (byte* p = &_raw[_offset]) return ((T*)p)[row * _cols + col];
+                fixed (byte* p = &_raw[ByteOffset(row, col, "읽기")]) return *(T*)p;
             }
             set
             {
-                Check(row, col);
-                fixed (byte* p = &_raw[_offset]) ((T*)p)[row * _cols + col] = value;
+                fixed (byte* p = &_raw[ByteOffset(row, col, "쓰기")]) *(T*)p = value;
             }
+        }
+
+        /// <summary>C처럼 행·열이 범위를 넘어도 구조체 바이트 안이면 접근한다 (NativeArray와 같은 규칙)</summary>
+        private unsafe int ByteOffset(int row, int col, string kind)
+        {
+            if ((uint)row >= (uint)_rows || (uint)col >= (uint)_cols) NativeDiagnostics.Report(_offset, row * _cols + col, _rows * _cols, kind);
+            long b = _offset + ((long)row * _cols + col) * sizeof(T);
+            if (b < 0 || b + sizeof(T) > _raw.Length) throw new IndexOutOfRangeException("구조체 밖 접근: 오프셋 " + _offset + " [" + row + "," + col + "]");
+            return (int)b;
         }
 
         /// <summary>한 행을 1차원 배열로 (원본 arr[row])</summary>
@@ -79,17 +109,13 @@ namespace NanoImpact.Core.Native
             return new NativeArray<T>(_raw, _offset + row * _cols * sizeof(T), _cols);
         }
 
-        private void Check(int row, int col)
-        {
-            if ((uint)row >= (uint)_rows || (uint)col >= (uint)_cols) throw new IndexOutOfRangeException();
-        }
     }
 
     /// <summary>
     /// 구조체 안의 char 배열 (예: char szServerIPAddress[16]). Value는 NUL까지를 CP949로 읽는다.
     /// 쓸 때는 strcpy처럼 NUL 하나만 붙이고 그 뒤 바이트는 건드리지 않는다(원본 파일 왕복 보존).
     /// </summary>
-    public sealed class NativeString
+    public sealed partial class NativeString
     {
         /// <summary>원본 문자열 코드 페이지 (한국어 Windows ANSI)</summary>
         public static readonly Encoding Ansi = Encoding.GetEncoding(949);
@@ -145,7 +171,7 @@ namespace NanoImpact.Core.Native
     }
 
     /// <summary>구조체 안의 2차원 char 배열 (char sz[n][len]) — 문자열 n개</summary>
-    public sealed class NativeStringArray
+    public sealed partial class NativeStringArray
     {
         private readonly byte[] _raw;
         private readonly int _offset;
