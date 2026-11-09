@@ -1,5 +1,7 @@
 // 원본과 같은지 확인하는 도구.
 //   NanoImpact.Verify golden <vectors.txt>   → golden.cpp와 같은 형식으로 출력 (두 출력을 diff)
+//   NanoImpact.Verify layout                 → 저장 구조체 배치 (tools\layout_probe 출력과 diff)
+//   NanoImpact.Verify ini <원본 INI 폴더>     → INI 3개 왕복·필드 쓰기 검사
 using System;
 using System.Globalization;
 using System.IO;
@@ -16,6 +18,8 @@ namespace NanoImpact.Verify
             try
             {
                 if (args.Length >= 2 && args[0] == "golden") return Golden(args[1]);
+                if (args.Length >= 1 && args[0] == "layout") return RecordChecks.PrintLayout();
+                if (args.Length >= 2 && args[0] == "ini") return RecordChecks.CheckIni(args[1]);
             }
             catch (Exception ex)
             {
@@ -23,7 +27,7 @@ namespace NanoImpact.Verify
                 Console.Error.WriteLine(ex.StackTrace);
                 return 1;
             }
-            Console.Error.WriteLine("사용법: NanoImpact.Verify golden <vectors.txt>");
+            Console.Error.WriteLine("사용법: NanoImpact.Verify golden <vectors.txt> | layout | ini <폴더>");
             return 2;
         }
 

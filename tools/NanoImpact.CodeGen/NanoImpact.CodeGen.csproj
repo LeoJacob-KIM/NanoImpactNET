@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 원본 DefineStructCode.h → src\NanoImpact.Core\Generated\*.g.cs, tools\layout_probe\probe_fields.inc -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NanoImpact.CodeGen</RootNamespace>
+    <AssemblyName>NanoImpact.CodeGen</AssemblyName>
+  </PropertyGroup>
+</Project>

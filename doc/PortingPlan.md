@@ -42,7 +42,7 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 | # | 단계 | 내용 | 상태 |
 |---|---|---|---|
 | 1 | 장비 통신 하위 계층 | ftd2xx P/Invoke, `Ft232hPort`(열기 순서·송신 3종), Scan Bridge 수신 파서·수신 스레드 | **완료, 기준 구현과 일치** (장비 미시험) |
-| 2 | 상수·구조체·설정 파일 | `DefineStructCode.h` → C# 상수/구조체 자동 변환, MSVC x86 크기·오프셋 대조, INI 3개 읽기·쓰기 왕복 시험 | 다음 |
+| 2 | 상수·구조체·설정 파일 | `DefineStructCode.h` → C# 상수/구조체 자동 변환, MSVC x86 크기·오프셋 대조, INI 3개 읽기·쓰기 왕복 시험 | **완료** — 상수 2,971개 전부, 저장 구조체 3개 배치 MSVC와 동일, INI 왕복 동일 |
 | 3 | 장비 명령 계층 | `AfxScanBridge*`, `AfxIntegrated*` (HV, 필라멘트, 바이어스, CL/OL, 정렬, 스티그, 배율·Zoom 릴레이, 스캔 생성, 스테이지 CNC), Scan Bridge 수신 처리기(PD/AR/EV/VS/VL/EM/RP/RM/LT/…) | |
 | 4 | 영상 취득 | SE/BSE 읽기 스레드 → `OnSemSEScanImageData`의 마커 해석(0xFF 프레임 시작, AB/AC, 0xFE/0xFD/0xFC) → 스캔 모드별(RED/FAST/SLOW/PHOTO1~6) 영상 조립 | |
 | 5 | Spellman C-FE HV | `SerialPort`, 프레임·checksum(`0x200-sum`, `&0x7F|0x40`), LF 조립, 명령표 | |
@@ -73,3 +73,15 @@ HV 동작 중이면 거부 → 확인 → UDP/EDS 정지, 스레드 정지, RS23
 - `tools\NanoImpact.Verify` — `NanoImpact.Verify golden vectors.txt` 출력이 `golden.exe` 출력과 같아야 한다.
 
 2026-11-09 결과: 738줄 동일 (CMD 208, AVR 212, 수신 MSG 83 / BAD 235).
+
+### 상수·구조체 생성과 배치 대조
+
+- `tools\NanoImpact.CodeGen` — 원본 `DefineStructCode.h`(CP949)를 읽어
+  - `src\NanoImpact.Core\Generated\Defines.g.cs`: `#define` 전부를 `Def.이름` 상수로. 식(`WM_USER + 4000`, `RGB(...)`, 다른 상수 참조, 정수 나눗셈)은 C 규칙으로 미리 계산하고 원본 식은 주석으로 남긴다. 같은 이름 재정의 18건은 모두 같은 값.
+  - `src\NanoImpact.Core\Generated\Records.g.cs`: 저장 구조체 3개. 바이트 배열을 그대로 들고 필드를 오프셋으로 읽고 쓴다(패딩·미초기화 바이트 보존). 이름은 원본 필드 이름 그대로.
+  - `tools\layout_probe\probe_fields.inc`: MSVC 프로브용 필드 목록.
+  - 원본 헤더가 바뀌면 생성기를 다시 돌리고 아래 두 검사를 다시 한다. 생성 파일은 직접 고치지 않는다.
+- `tools\layout_probe\build.bat` — 원본 헤더를 cl.exe x86으로 컴파일해 `sizeof`/`offsetof`를 `out\msvc_layout.txt`로. `NanoImpact.Verify layout` 출력과 같아야 한다.
+- `NanoImpact.Verify ini <폴더>` — 원본 INI 3개를 읽고 다시 쓴 바이트가 같은지, 필드 쓰기가 그 필드 바이트만 바꾸는지.
+
+2026-11-09 결과: 배치 556줄 동일(크기 28,432 / 9,712 / 132,480 B), INI 3개 왕복 동일 (원본 `build\Out\Debug`의 파일).

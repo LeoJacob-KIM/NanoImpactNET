@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\NanoImpact.Hardware\NanoImpact.Hardware.csproj" />
+    <ProjectReference Include="..\..\src\NanoImpact.Core\NanoImpact.Core.csproj" />
   </ItemGroup>
 </Project>
