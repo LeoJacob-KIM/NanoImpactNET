@@ -4,7 +4,7 @@
 #   powershell -File make_main.ps1 [-Value 1] [-Name main1]
 # Keep ASCII.
 param([int]$Value = 1, [string]$Name = 'main')
-$src = 'C:\Users\Administrator\Downloads\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe'
+$src = 'D:\01. Code\16.SEM\07. Test\Code_backup\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe'
 $defs = Join-Path $PSScriptRoot '..\..\src\NanoImpact.Core\Generated\Defines.g.cs'
 $map = Join-Path $PSScriptRoot 'main_msgmap.inc'
 $startup = Get-Content (Join-Path $PSScriptRoot 'scripts\startup.txt') -Encoding UTF8

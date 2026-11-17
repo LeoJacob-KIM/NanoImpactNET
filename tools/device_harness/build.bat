@@ -4,7 +4,7 @@ rem (pasted unmodified) + shim headers + fake Ftd2xx.dll.
 rem Arg 1: original source folder. Output: out\harness.exe, out\Ftd2xx.dll. Keep this file ASCII.
 setlocal
 set SRC=%~1
-if "%SRC%"=="" set SRC=C:\Users\Administrator\Downloads\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe
+if "%SRC%"=="" set SRC=D:\01. Code\16.SEM\07. Test\Code_backup\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvars32.bat" >nul 2>nul
 cd /d "%~dp0"
 if not exist out\src mkdir out\src

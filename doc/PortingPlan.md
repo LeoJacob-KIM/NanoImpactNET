@@ -1,6 +1,6 @@
 # NanoImpact → .NET Framework 4.8 포팅 계획
 
-원본: `Downloads\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe` (C++ MFC, v142, x86, 마지막 빌드 2025-06-20). 원본은 참고용으로 두고 고치지 않는다.
+원본: `D:\01. Code\16.SEM\07. Test\Code_backup\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe` (2026-11 Downloads에서 옮김) (C++ MFC, v142, x86, 마지막 빌드 2025-06-20). 원본은 참고용으로 두고 고치지 않는다.
 대상: 이 저장소 `NanoImpactNET` — C# 7.3, .NET Framework 4.8, WPF, **x86**.
 
 ## 1. 원칙

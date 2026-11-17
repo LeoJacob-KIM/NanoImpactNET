@@ -17,7 +17,7 @@ namespace NanoImpact.CodeGen
 {
     internal static class Program
     {
-        private const string DefaultHeader = @"C:\Users\Administrator\Downloads\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe\DefineStructCode.h";
+        private const string DefaultHeader = @"D:\01. Code\16.SEM\07. Test\Code_backup\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe\DefineStructCode.h";
 
         /// <summary>설정 파일로 저장되는 구조체 → C# 클래스 이름</summary>
         private static readonly Dictionary<string, string> Records = new Dictionary<string, string>

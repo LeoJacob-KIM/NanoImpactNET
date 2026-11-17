@@ -4,7 +4,7 @@
 # 결과: out\<이름>.original.txt, out\<이름>.csharp.txt, 첫 차이 몇 줄
 param(
     [Parameter(Mandatory = $true)][string]$Script,
-    [string]$IniSource = 'C:\Users\Administrator\Downloads\NanoImpact_20230510\NanoImpact\build\Out\Debug'
+    [string]$IniSource = 'D:\01. Code\16.SEM\07. Test\Code_backup\NanoImpact_20230510\NanoImpact\build\Out\Debug'
 )
 $ErrorActionPreference = 'Stop'
 $out = Join-Path $PSScriptRoot 'out'

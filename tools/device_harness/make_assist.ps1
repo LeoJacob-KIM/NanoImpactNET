@@ -4,7 +4,7 @@
 # Argument values: int = Value, double = Value.5, CString = "Value.25", request n = Value,Value+1,.. d = Value.5,.. sz = "Value".
 # Keep ASCII.
 param([int]$Value = 1, [string]$Name = 'assist')
-$src = 'C:\Users\Administrator\Downloads\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe'
+$src = 'D:\01. Code\16.SEM\07. Test\Code_backup\NanoImpact_20230510\NanoImpact\source\NanoImpact2020cfe'
 $inc = Join-Path $PSScriptRoot 'out\src\assist_dispatch.inc'
 $defs = Join-Path $PSScriptRoot '..\..\src\NanoImpact.Core\Generated\Defines.g.cs'
 $startup = Get-Content (Join-Path $PSScriptRoot 'scripts\startup.txt') -Encoding UTF8
